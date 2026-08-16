@@ -1,0 +1,1861 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Economía Familiar</title>
+    <!-- Tailwind CSS para diseño moderno y responsive -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React y ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel para compilar JSX en el navegador -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Chart.js para gráficas -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        body { font-family: 'Inter', system-ui, sans-serif; background-color: #f3f4f6; }
+        .tab-active { border-bottom: 2px solid #2563eb; color: #2563eb; font-weight: 600; }
+        .tab-inactive { color: #6b7280; font-weight: 500; }
+        .tab-inactive:hover { color: #374151; background-color: #f9fafb; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
+        
+        // Formatos numéricos europeos (Punto para miles, Coma para decimales) EXCEPTO AÑOS
+        const formatCurrency = (value) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(value || 0);
+        const formatPercent = (value) => new Intl.NumberFormat('es-ES', { style: 'percent', minimumFractionDigits: 2 }).format((value || 0) / 100);
+        const formatOptionalCurrency = (value) => value == null ? '—' : formatCurrency(value);
+        const formatOptionalPercent = (value) => value == null ? '—' : formatPercent(value);
+
+        const loadSafe = (key, defaultVal) => {
+            try { const item = localStorage.getItem(key); return item ? JSON.parse(item) : defaultVal; }
+            catch(e) { return defaultVal; }
+        };
+        const saveSafe = (key, value) => {
+            try { localStorage.setItem(key, JSON.stringify(value)); }
+            catch(e) { console.error("Error guardando en LocalStorage", e); }
+        };
+
+        const INITIAL_FUNDS = [];
+
+        const INITIAL_INCOMES = [];
+
+        const INITIAL_EXPENSES = [];
+
+        const INITIAL_SNAPSHOTS = [];
+
+        // This public version starts clean and uses its own storage namespace.
+        const PUBLIC_STORAGE = { incomes: 'eco_public_blank_v3_incomes', expenses: 'eco_public_blank_v3_expenses', snapshots: 'eco_public_blank_v3_snapshots', funds: 'eco_public_blank_v3_funds' };
+
+        const LINE_CHART_OPTIONS = { elements: { line: { tension: 0.3, borderWidth: 3 } } };
+
+        const SimpleChart = ({ data, type = 'line', options = {} }) => {
+            const chartRef = useRef(null);
+            const chartInstance = useRef(null);
+
+            useEffect(() => {
+                if (!chartRef.current) return;
+                if (chartInstance.current) chartInstance.current.destroy();
+                const ctx = chartRef.current.getContext('2d');
+                
+                const defaultOptions = { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value);
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) label += ': ';
+                                    if (context.parsed.y !== null) {
+                                        label += new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(context.parsed.y);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    ...options 
+                };
+
+                chartInstance.current = new Chart(ctx, { type, data, options: defaultOptions });
+                return () => { if (chartInstance.current) chartInstance.current.destroy(); };
+            }, [data, type, options]);
+
+            return <div style={{ height: '350px', width: '100%' }}><canvas ref={chartRef}></canvas></div>;
+        };
+
+        const Notification = ({ message, onClose }) => {
+            if (!message) return null;
+            useEffect(() => { const timer = setTimeout(onClose, 3000); return () => clearTimeout(timer); }, [message, onClose]);
+            return (
+                <div className="fixed bottom-4 right-4 bg-gray-900 text-white px-6 py-3 rounded-lg shadow-xl z-50 flex items-center gap-3 fade-in">
+                    <span>✅</span> <span className="font-medium">{message}</span>
+                </div>
+            );
+        };
+
+        const VoiceInputButton = ({ onTranscript, showMessage }) => {
+            const [isListening, setIsListening] = useState(false);
+
+            const handleListen = () => {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (!SpeechRecognition) {
+                    showMessage("Tu navegador no soporta reconocimiento de voz.");
+                    return;
+                }
+
+                const recognition = new SpeechRecognition();
+                recognition.lang = 'es-ES';
+                recognition.interimResults = false;
+                recognition.maxAlternatives = 1;
+
+                recognition.onstart = () => {
+                    setIsListening(true);
+                    showMessage("Escuchando comando de voz...");
+                };
+
+                recognition.onresult = (event) => {
+                    const text = event.results[0][0].transcript;
+                    setIsListening(false);
+                    onTranscript(text);
+                };
+
+                recognition.onerror = () => {
+                    setIsListening(false);
+                    showMessage("Error al capturar la voz.");
+                };
+
+                recognition.onend = () => setIsListening(false);
+                recognition.start();
+            };
+
+            return (
+                <button 
+                    type="button" 
+                    onClick={handleListen}
+                    className={`px-3 py-2 rounded font-bold text-xs flex items-center gap-1 shadow transition-all ${isListening ? 'bg-red-600 text-white animate-pulse' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'}`}
+                    title="Dictar por voz"
+                >
+                    <span>🎙️</span> {isListening ? 'Escuchando...' : 'Dictar por voz'}
+                </button>
+            );
+        };
+
+        const useSortableData = (items, config = null) => {
+            const [sortConfig, setSortConfig] = useState(config);
+
+            const sortedItems = useMemo(() => {
+                let sortableItems = [...items];
+                if (sortConfig !== null) {
+                    sortableItems.sort((a, b) => {
+                        let aVal = a[sortConfig.key];
+                        let bVal = b[sortConfig.key];
+                        if (aVal === undefined) aVal = '';
+                        if (bVal === undefined) bVal = '';
+                        if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+                        if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+                        
+                        if (aVal < bVal) return sortConfig.direction === 'ascending' ? -1 : 1;
+                        if (aVal > bVal) return sortConfig.direction === 'ascending' ? 1 : -1;
+                        return 0;
+                    });
+                }
+                return sortableItems;
+            }, [items, sortConfig]);
+
+            const requestSort = (key) => {
+                let direction = 'ascending';
+                if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+                    direction = 'descending';
+                }
+                setSortConfig({ key, direction });
+            };
+
+            return { items: sortedItems, requestSort, sortConfig };
+        };
+
+        const IngresosTab = ({ incomes, addIncome, updateIncome, deleteIncome, showMessage }) => {
+            const currentYearStr = new Date().getFullYear().toString();
+            
+            const [selectedYearInput, setSelectedYearInput] = useState(currentYearStr);
+            const [selectedMonthInput, setSelectedMonthInput] = useState('01');
+            const [owner, setOwner] = useState('Titular 1');
+            const [concept, setConcept] = useState('Nómina');
+            const [customConcept, setCustomConcept] = useState('');
+            const [amount, setAmount] = useState('');
+            const [editingId, setEditingId] = useState(null);
+
+            const [selectedYear, setSelectedYear] = useState(currentYearStr);
+            
+            const historicalAmounts = useMemo(() => {
+                const amounts = incomes.map(i => i.amount);
+                return [...new Set(amounts)].sort((a, b) => b - a);
+            }, [incomes]);
+
+            const CONCEPTOS_PREDEFINIDOS = ["Nómina", "Incentivos", "Paga extra", "IRPF"];
+            const allUsedConcepts = useMemo(() => [...new Set([...CONCEPTOS_PREDEFINIDOS, ...incomes.map(i => i.concept)])].sort(), [incomes]);
+
+            const [chartStartYear, setChartStartYear] = useState('2020');
+            const [chartEndYear, setChartEndYear] = useState(currentYearStr);
+            const [chartStartMonth, setChartStartMonth] = useState('01');
+            const [chartEndMonth, setChartEndMonth] = useState('12');
+            const [selectedOwners, setSelectedOwners] = useState(['Titular 1', 'Titular 2']);
+            const [showTotalLine, setShowTotalLine] = useState(true);
+            const [showCumulative, setShowCumulative] = useState(false);
+            const [selectedConcepts, setSelectedConcepts] = useState([...CONCEPTOS_PREDEFINIDOS]);
+            const [splitByConcept, setSplitByConcept] = useState(false);
+
+            const handleToggleConcept = (c) => {
+                if (selectedConcepts.includes(c)) setSelectedConcepts(selectedConcepts.filter(x => x !== c));
+                else setSelectedConcepts([...selectedConcepts, c]);
+            };
+            const handleToggleOwner = (o) => {
+                if (selectedOwners.includes(o)) setSelectedOwners(selectedOwners.filter(x => x !== o));
+                else setSelectedOwners([...selectedOwners, o]);
+            };
+
+            const handleStartEdit = (inc) => {
+                setEditingId(inc.id);
+                setSelectedYearInput(inc.date.substring(0, 4));
+                setSelectedMonthInput(inc.date.substring(5, 7));
+                setOwner(inc.owner);
+                if (CONCEPTOS_PREDEFINIDOS.includes(inc.concept) || inc.concept === 'Incentivos') {
+                    setConcept(inc.concept);
+                    setCustomConcept('');
+                } else {
+                    setConcept('Otros');
+                    setCustomConcept(inc.concept);
+                }
+                setAmount(inc.amount);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            };
+
+            const handleCancelEdit = () => {
+                setEditingId(null);
+                setAmount('');
+                setCustomConcept('');
+            };
+
+            const handleAdd = (e) => {
+                if (e) e.preventDefault();
+                if (!amount) return;
+                const finalConcept = concept === 'Otros' ? customConcept : concept;
+                if (!finalConcept) return;
+                
+                const fullDate = `${selectedYearInput}-${selectedMonthInput}`;
+
+                if (editingId) {
+                    updateIncome({ id: editingId, date: fullDate, owner, concept: finalConcept, amount: parseFloat(amount) });
+                    showMessage("Ingreso actualizado correctamente");
+                    setEditingId(null);
+                } else {
+                    addIncome({ id: generateId(), date: fullDate, owner, concept: finalConcept, amount: parseFloat(amount) });
+                    showMessage("Ingreso añadido correctamente");
+                }
+
+                setAmount('');
+                setCustomConcept('');
+                if (!fullDate.startsWith(selectedYear)) setSelectedYear(selectedYearInput);
+                if (!selectedConcepts.includes(finalConcept)) setSelectedConcepts(prev => [...prev, finalConcept]);
+            };
+
+            const handleVoiceTranscript = (text) => {
+                const lower = text.toLowerCase();
+                if (lower.includes('titular 2')) setOwner('Titular 2');
+                else if (lower.includes('titular 1')) setOwner('Titular 1');
+
+                if (lower.includes('nómina') || lower.includes('nomina')) setConcept('Nómina');
+                else if (lower.includes('incentivo')) setConcept('Incentivos');
+                else if (lower.includes('paga extra')) setConcept('Paga extra');
+                else if (lower.includes('irpf')) setConcept('IRPF');
+
+                const numbers = text.match(/\d+([.,]\d+)?/);
+                if (numbers) {
+                    setAmount(numbers[0].replace(',', '.'));
+                }
+                showMessage(`Voz interpretada: ${text}`);
+            };
+
+            const months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+            const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+            
+            const yearIncomes = incomes.filter(i => i.date.startsWith(selectedYear));
+            const tableMap = {};
+            yearIncomes.forEach(inc => {
+                const key = `${inc.owner} - ${inc.concept}`;
+                if (!tableMap[key]) tableMap[key] = { owner: inc.owner, concept: inc.concept, months: {}, total: 0 };
+                const m = inc.date.slice(5, 7);
+                tableMap[key].months[m] = (tableMap[key].months[m] || 0) + inc.amount;
+                tableMap[key].total += inc.amount;
+            });
+
+            const getRowPriority = (owner, concept) => {
+                const cLower = concept.toLowerCase();
+                if (owner === 'Titular 1') {
+                    if (cLower.includes('nómina') || cLower.includes('nomina')) return 1;
+                    if (cLower.includes('incentivo')) return 2;
+                    if (cLower.includes('paga extra')) return 3;
+                    if (cLower.includes('irpf')) return 4;
+                    return 5;
+                } else {
+                    if (cLower.includes('nómina') || cLower.includes('nomina')) return 1;
+                    if (cLower.includes('paga extra')) return 2;
+                    if (cLower.includes('irpf')) return 3;
+                    if (cLower.includes('incentivo')) return 4;
+                    return 5;
+                }
+            };
+
+            const tableRows = Object.values(tableMap).sort((a, b) => {
+                if (a.owner !== b.owner) return a.owner.localeCompare(b.owner);
+                const pA = getRowPriority(a.owner, a.concept);
+                const pB = getRowPriority(b.owner, b.concept);
+                if (pA !== pB) return pA - pB;
+                return a.concept.localeCompare(b.concept);
+            });
+            
+            const monthlyTotals = {};
+            let grandTotal = 0;
+            months.forEach(m => {
+                const sum = tableRows.reduce((acc, row) => acc + (row.months[m] || 0), 0);
+                monthlyTotals[m] = sum;
+                grandTotal += sum;
+            });
+
+            const chartData = useMemo(() => {
+                const chartStartFull = `${chartStartYear}-${chartStartMonth}`;
+                const chartEndFull = `${chartEndYear}-${chartEndMonth}`;
+
+                const chartIncomes = incomes.filter(i => {
+                    if (chartStartFull && i.date < chartStartFull) return false;
+                    if (chartEndFull && i.date > chartEndFull) return false;
+                    if (!selectedOwners.includes(i.owner)) return false;
+                    if (!selectedConcepts.includes(i.concept)) return false;
+                    return true;
+                });
+
+                const chartDataMap = {};
+                chartIncomes.forEach(i => {
+                    if (!chartDataMap[i.date]) chartDataMap[i.date] = { 'Titular 1': 0, 'Titular 2': 0, Total: 0 };
+                    if (splitByConcept) {
+                        const key = `${i.owner} - ${i.concept}`;
+                        chartDataMap[i.date][key] = (chartDataMap[i.date][key] || 0) + i.amount;
+                    } else {
+                        chartDataMap[i.date][i.owner] = (chartDataMap[i.date][i.owner] || 0) + i.amount;
+                        chartDataMap[i.date].Total = (chartDataMap[i.date].Total || 0) + i.amount;
+                    }
+                });
+
+                const sortedChartMonths = Object.keys(chartDataMap).sort();
+                const datasets = [];
+                const colors = ['#3b82f6', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#f97316'];
+
+                if (splitByConcept) {
+                    const uniqueKeys = [...new Set(chartIncomes.map(i => `${i.owner} - ${i.concept}`))].sort();
+                    uniqueKeys.forEach((key, idx) => {
+                        datasets.push({ label: key, data: sortedChartMonths.map(m => chartDataMap[m][key] || 0), borderColor: colors[idx % colors.length], backgroundColor: colors[idx % colors.length], fill: false });
+                    });
+                } else {
+                    if (selectedOwners.includes('Titular 1')) {
+                        if (showCumulative) {
+                            let running = 0;
+                            const cumData = sortedChartMonths.map(m => { running += (chartDataMap[m]['Titular 1'] || 0); return running; });
+                            datasets.push({ label: 'Titular 1 (Acumulado Anual)', data: cumData, borderColor: '#1d4ed8', borderDash: [2, 2], fill: false });
+                        } else {
+                            datasets.push({ label: 'Titular 1', data: sortedChartMonths.map(m => chartDataMap[m]['Titular 1'] || 0), borderColor: '#3b82f6', fill: false });
+                        }
+                    }
+                    if (selectedOwners.includes('Titular 2')) {
+                        if (showCumulative) {
+                            let running = 0;
+                            const cumData = sortedChartMonths.map(m => { running += (chartDataMap[m]['Titular 2'] || 0); return running; });
+                            datasets.push({ label: 'Titular 2 (Acumulado Anual)', data: cumData, borderColor: '#be185d', borderDash: [2, 2], fill: false });
+                        } else {
+                            datasets.push({ label: 'Titular 2', data: sortedChartMonths.map(m => chartDataMap[m]['Titular 2'] || 0), borderColor: '#ec4899', fill: false });
+                        }
+                    }
+                    if (showTotalLine && selectedOwners.length > 0) {
+                        if (showCumulative) {
+                            let running = 0;
+                            const cumData = sortedChartMonths.map(m => { running += (chartDataMap[m].Total || 0); return running; });
+                            datasets.push({ label: 'Suma Total (Acumulado Anual)', data: cumData, borderColor: '#047857', borderDash: [5, 5], borderWidth: 3, fill: false });
+                        } else {
+                            datasets.push({ label: 'Suma Conjunta', data: sortedChartMonths.map(m => chartDataMap[m].Total || 0), borderColor: '#10b981', borderDash: [5, 5], fill: false });
+                        }
+                    }
+                }
+
+                return { labels: sortedChartMonths, datasets };
+            }, [incomes, chartStartYear, chartStartMonth, chartEndYear, chartEndMonth, selectedOwners, selectedConcepts, splitByConcept, showCumulative, showTotalLine]);
+
+            const { items: sortedTableRows, requestSort: requestTableSort } = useSortableData(tableRows);
+
+            return (
+                <div className="space-y-6 fade-in w-full max-w-full">
+                    <div className={`p-6 rounded-xl shadow-sm border transition-colors ${editingId ? 'bg-amber-50 border-amber-300' : 'bg-white border-gray-200'}`}>
+                        <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
+                            <h2 className={`text-lg font-bold flex items-center gap-2 ${editingId ? 'text-amber-900' : 'text-blue-900'}`}>
+                                <span>{editingId ? '✏️' : '➕'}</span> {editingId ? 'Editando Ingreso Seleccionado' : 'Añadir Nuevo Ingreso'}
+                            </h2>
+                            <div className="flex items-center gap-2">
+                                <VoiceInputButton onTranscript={handleVoiceTranscript} showMessage={showMessage} />
+                                {editingId && (
+                                    <button type="button" onClick={handleCancelEdit} className="text-xs font-bold text-red-600 bg-red-50 px-3 py-1 rounded hover:bg-red-100">Cancelar</button>
+                                )}
+                            </div>
+                        </div>
+                        <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
+                            <div className="md:col-span-1">
+                                <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Año</label>
+                                <input type="text" value={selectedYearInput} onChange={e=>setSelectedYearInput(e.target.value)} className="w-full p-2 border rounded bg-gray-50 outline-blue-500 font-bold" required />
+                            </div>
+                            <div className="md:col-span-1">
+                                <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Mes</label>
+                                <select value={selectedMonthInput} onChange={e=>setSelectedMonthInput(e.target.value)} className="w-full p-2 border rounded bg-gray-50 outline-blue-500 font-bold">
+                                    {months.map((m, idx) => <option key={m} value={m}>{monthNames[idx]}</option>)}
+                                </select>
+                            </div>
+                            <div className="md:col-span-1">
+                                <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Persona</label>
+                                <select value={owner} onChange={e=>setOwner(e.target.value)} className="w-full p-2 border rounded outline-blue-500">
+                                    <option value="Titular 1">Titular 1</option><option value="Titular 2">Titular 2</option>
+                                </select>
+                            </div>
+                            <div className="md:col-span-1">
+                                <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Concepto</label>
+                                <select value={concept} onChange={e=>{setConcept(e.target.value); setCustomConcept('');}} className="w-full p-2 border rounded outline-blue-500">
+                                    {allUsedConcepts.map(c => <option key={c} value={c}>{c}</option>)}
+                                    <option value="Otros">Otros (Escribir Nuevo...)</option>
+                                </select>
+                            </div>
+                            {concept === 'Otros' && (
+                                <div className="md:col-span-1">
+                                    <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Especificar</label>
+                                    <input type="text" value={customConcept} onChange={e=>setCustomConcept(e.target.value)} className="w-full p-2 border rounded outline-blue-500" placeholder="Ej: Venta" required />
+                                </div>
+                            )}
+                            <div className="md:col-span-1">
+                                <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Importe (€)</label>
+                                <input type="number" step="0.01" value={amount} onChange={e=>setAmount(e.target.value)} list="historical-amounts-ingresos" className="w-full p-2 border rounded font-bold text-green-700 outline-blue-500" placeholder="Ej: 1500" required />
+                                <datalist id="historical-amounts-ingresos">
+                                    {historicalAmounts.map((amt, idx) => <option key={idx} value={amt} />)}
+                                </datalist>
+                            </div>
+                            <div className="md:col-span-1">
+                                <button type="submit" className={`w-full text-white p-2 rounded font-bold shadow transition-colors ${editingId ? 'bg-amber-600 hover:bg-amber-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                                    {editingId ? 'Actualizar' : 'Guardar'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden w-full">
+                        <div className="bg-gray-50 p-4 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                            <h2 className="text-lg font-bold text-gray-800">Desglose Mensual de Ingresos</h2>
+                            <div className="flex items-center gap-2">
+                                <label className="text-sm font-bold text-gray-600">Año:</label>
+                                <input type="text" value={selectedYear} onChange={e=>setSelectedYear(e.target.value)} className="w-24 p-1 border rounded bg-white font-bold text-blue-700 outline-none text-center" />
+                            </div>
+                        </div>
+                        <div className="w-full overflow-x-auto">
+                            <table className="w-full text-sm text-right">
+                                <thead className="bg-white border-b">
+                                    <tr>
+                                        <th onClick={() => requestTableSort('concept')} className="px-4 py-3 text-left font-bold text-gray-700 min-w-[200px] cursor-pointer hover:bg-gray-100">Persona - Concepto ↕</th>
+                                        {monthNames.map(m => <th key={m} className="px-2 py-3 font-semibold text-gray-600 text-right">{m}</th>)}
+                                        <th onClick={() => requestTableSort('total')} className="px-4 py-3 font-black text-blue-800 bg-blue-50/50 text-right cursor-pointer hover:bg-blue-100">TOTAL ↕</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {sortedTableRows.length === 0 ? <tr><td colSpan="14" className="text-center py-8 text-gray-400">No hay ingresos registrados en {selectedYear}.</td></tr> :
+                                        sortedTableRows.map((row) => (
+                                            <tr key={`${row.owner}-${row.concept}`} className="hover:bg-gray-50">
+                                                <td className="px-4 py-2 text-left font-medium">
+                                                    <span className={row.owner === 'Titular 1' ? 'text-blue-700' : 'text-pink-600'}>{row.owner}</span>
+                                                    <span className="text-gray-400 mx-1">-</span>
+                                                    <span className="text-gray-600">{row.concept}</span>
+                                                </td>
+                                                {months.map(m => <td key={m} className="px-2 py-2 text-gray-600 text-right">{row.months[m] ? formatCurrency(row.months[m]) : '-'}</td>)}
+                                                <td className="px-4 py-2 font-bold text-gray-900 bg-blue-50/30 text-right">{formatCurrency(row.total)}</td>
+                                            </tr>
+                                        ))}
+                                </tbody>
+                                <tfoot className="bg-gray-50 border-t-2 border-gray-200 font-bold">
+                                    <tr>
+                                        <td className="px-4 py-3 text-left">TOTAL MENSUAL</td>
+                                        {months.map(m => <td key={m} className="px-2 py-3 text-gray-800 text-right">{monthlyTotals[m] ? formatCurrency(monthlyTotals[m]) : '-'}</td>)}
+                                        <td className="px-4 py-3 font-black text-green-700 bg-green-50/50 text-lg text-right">{formatCurrency(grandTotal)}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 w-full">
+                        <h2 className="text-lg font-bold mb-4 text-gray-800 flex items-center gap-2">
+                            <span>📈</span> Gráfica Interactiva
+                        </h2>
+                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-6 space-y-4">
+                            <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-start sm:items-end">
+                                <div>
+                                    <label className="block text-xs font-bold text-blue-900 uppercase">Desde (Año / Mes)</label>
+                                    <div className="flex gap-2">
+                                        <input type="text" value={chartStartYear} onChange={e=>setChartStartYear(e.target.value)} className="p-1 border rounded text-sm bg-white w-20 outline-blue-500 font-bold" />
+                                        <select value={chartStartMonth} onChange={e=>setChartStartMonth(e.target.value)} className="p-1 border rounded text-sm bg-white outline-blue-500">
+                                            {months.map((m, idx)=><option key={m} value={m}>{monthNames[idx]}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-blue-900 uppercase">Hasta (Año / Mes)</label>
+                                    <div className="flex gap-2">
+                                        <input type="text" value={chartEndYear} onChange={e=>setChartEndYear(e.target.value)} className="p-1 border rounded text-sm bg-white w-20 outline-blue-500 font-bold" />
+                                        <select value={chartEndMonth} onChange={e=>setChartEndMonth(e.target.value)} className="p-1 border rounded text-sm bg-white outline-blue-500">
+                                            {months.map((m, idx)=><option key={m} value={m}>{monthNames[idx]}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                                <button onClick={()=>{setChartStartYear('2020'); setChartEndYear(currentYearStr); setChartStartMonth('01'); setChartEndMonth('12');}} className="text-xs font-bold text-blue-600 hover:underline mb-1">Ver todo el histórico</button>
+                                
+                                <div className="sm:ml-auto flex flex-wrap items-center gap-4 bg-white p-2 border rounded shadow-sm w-full sm:w-auto">
+                                    <label className="flex items-center gap-1 text-sm font-medium cursor-pointer"><input type="checkbox" checked={selectedOwners.includes('Titular 1')} onChange={()=>handleToggleOwner('Titular 1')} className="w-4 h-4 text-blue-600" /> Titular 1</label>
+                                    <label className="flex items-center gap-1 text-sm font-medium cursor-pointer"><input type="checkbox" checked={selectedOwners.includes('Titular 2')} onChange={()=>handleToggleOwner('Titular 2')} className="w-4 h-4 text-pink-600" /> Titular 2</label>
+                                    <label className="flex items-center gap-1 text-sm font-bold text-green-700 sm:border-l sm:pl-2 cursor-pointer"><input type="checkbox" checked={showTotalLine} onChange={()=>setShowTotalLine(!showTotalLine)} className="w-4 h-4 text-green-600" /> Suma Total</label>
+                                </div>
+                            </div>
+                            <div className="bg-white p-3 border rounded shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                <div>
+                                    <span className="text-xs font-bold text-blue-900 uppercase mb-2 block">Mezclar Conceptos:</span>
+                                    <div className="flex flex-wrap gap-2">
+                                        {allUsedConcepts.map(c => (
+                                            <label key={c} className={`flex items-center gap-1 text-sm px-2 py-1 rounded border cursor-pointer ${selectedConcepts.includes(c) ? 'bg-blue-100 border-blue-400 font-bold' : 'bg-gray-50'}`}>
+                                                <input type="checkbox" checked={selectedConcepts.includes(c)} onChange={()=>handleToggleConcept(c)} className="w-4 h-4" /> {c}
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="border-t sm:border-t-0 sm:border-l sm:pl-4 pt-2 sm:pt-0">
+                                    <label className="flex items-center gap-2 text-sm font-bold text-indigo-900 bg-indigo-50 px-3 py-2 border border-indigo-200 rounded cursor-pointer shadow-sm hover:bg-indigo-100 transition-colors">
+                                        <input type="checkbox" checked={showCumulative} onChange={()=>setShowCumulative(!showCumulative)} className="w-4 h-4 text-indigo-600" />
+                                        <span>Mostrar Acumulado Anual (YTD)</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        {chartData.labels.length > 0 ? <SimpleChart data={chartData} type="line" options={LINE_CHART_OPTIONS} /> : <p className="text-center py-6 text-gray-500">Selecciona datos para graficar.</p>}
+                    </div>
+
+                    <div className="bg-white p-4 rounded-xl shadow-sm border mt-4 w-full">
+                        <details>
+                            <summary className="font-bold text-sm text-blue-600 cursor-pointer outline-none">Historial completo para editar o borrar errores</summary>
+                            <div className="mt-4 max-h-40 overflow-y-auto pr-2">
+                                <ul className="text-sm divide-y">
+                                    {incomes.slice().reverse().map(i => (
+                                        <li key={i.id} className="py-2 flex justify-between items-center hover:bg-gray-50 px-2 rounded">
+                                            <span><span className="font-bold text-gray-600">{i.date}</span> - {i.owner} - {i.concept}</span>
+                                            <div className="flex items-center gap-3">
+                                                <span className="font-medium text-green-600">{formatCurrency(i.amount)}</span>
+                                                <button onClick={()=>handleStartEdit(i)} className="px-2 py-1 bg-amber-50 text-amber-700 rounded hover:bg-amber-100 text-xs font-bold">Editar</button>
+                                                <button onClick={()=>{deleteIncome(i.id); showMessage("Ingreso eliminado");}} className="px-2 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100 text-xs font-bold">Borrar</button>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            );
+        };
+
+        const GastosTab = ({ expenses, addExpense, updateExpense, deleteExpense, incomes, showMessage }) => {
+            const currentYearStr = new Date().getFullYear().toString();
+            const PREDEFINED_EXPENSES = [
+                "Ahorro", "Seguro casa", "Contribución", "Seguro coche", "Sello coche", "Gasolina", 
+                "Deporte", "Comunidad", "Luz", "Agua", "Gas", "Adeslas", "Teléfono", "Movistar Plus", 
+                "Club 79", "Prime Video", "Lotería", "Educo", "Cole", "Inglés", "Vacaciones", 
+                "Máster", "Fútbol", "Baloncesto", "Reyes", "Pilates", "Google"
+            ];
+            
+            const [selectedYearInput, setSelectedYearInput] = useState(currentYearStr);
+            const [selectedMonthInput, setSelectedMonthInput] = useState('01');
+            const [concept, setConcept] = useState(PREDEFINED_EXPENSES[0]);
+            const [customConcept, setCustomConcept] = useState('');
+            const [amount, setAmount] = useState('');
+            const [editingId, setEditingId] = useState(null);
+
+            const [selectedYear, setSelectedYear] = useState(currentYearStr);
+            const [selectedPeriod, setSelectedPeriod] = useState('Anual');
+            const [calcMonth, setCalcMonth] = useState(new Date().toISOString().slice(0, 7));
+            const [chartStartYear, setChartStartYear] = useState('2020');
+            const [chartEndYear, setChartEndYear] = useState(currentYearStr);
+            const [chartStartMonth, setChartStartMonth] = useState('01');
+            const [chartEndMonth, setChartEndMonth] = useState('12');
+            const [splitByConcept, setSplitByConcept] = useState(false);
+            
+            const historicalAmounts = useMemo(() => {
+                const amounts = expenses.map(e => e.amount);
+                return [...new Set(amounts)].sort((a, b) => b - a);
+            }, [expenses]);
+
+            const allConcepts = useMemo(() => [...new Set([...PREDEFINED_EXPENSES, ...expenses.map(e => e.concept)])].sort(), [expenses]);
+            const allUsedConcepts = useMemo(() => [...new Set(expenses.map(e => e.concept))].sort(), [expenses]);
+            const [selectedConcepts, setSelectedConcepts] = useState([]);
+            
+            const initializedConcepts = useRef(false);
+            useEffect(() => {
+                if (!initializedConcepts.current && allUsedConcepts.length > 0) {
+                    setSelectedConcepts(allUsedConcepts);
+                    initializedConcepts.current = true;
+                }
+            }, [allUsedConcepts]);
+
+            const handleToggleConcept = (c) => {
+                if (selectedConcepts.includes(c)) setSelectedConcepts(selectedConcepts.filter(x => x !== c));
+                else setSelectedConcepts([...selectedConcepts, c]);
+            };
+
+            const handleStartEdit = (exp) => {
+                setEditingId(exp.id);
+                setSelectedYearInput(exp.date.substring(0, 4));
+                setSelectedMonthInput(exp.date.substring(5, 7));
+                if (PREDEFINED_EXPENSES.includes(exp.concept)) {
+                    setConcept(exp.concept);
+                    setCustomConcept('');
+                } else {
+                    setConcept('Otros');
+                    setCustomConcept(exp.concept);
+                }
+                setAmount(exp.amount);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            };
+
+            const handleCancelEdit = () => {
+                setEditingId(null);
+                setAmount('');
+                setCustomConcept('');
+            };
+
+            const handleAdd = (e) => {
+                if (e) e.preventDefault();
+                if (!amount) return;
+                const finalConcept = concept === 'Otros' ? customConcept : concept;
+                if (!finalConcept) return;
+                
+                const fullDate = `${selectedYearInput}-${selectedMonthInput}`;
+
+                if (editingId) {
+                    updateExpense({ id: editingId, date: fullDate, concept: finalConcept, amount: parseFloat(amount) });
+                    showMessage("Gasto actualizado correctamente");
+                    setEditingId(null);
+                } else {
+                    addExpense({ id: generateId(), date: fullDate, concept: finalConcept, amount: parseFloat(amount) });
+                    showMessage("Gasto/Ahorro añadido correctamente");
+                }
+
+                setAmount('');
+                setCustomConcept('');
+                if (!fullDate.startsWith(selectedYear)) setSelectedYear(selectedYearInput);
+                if (!selectedConcepts.includes(finalConcept)) setSelectedConcepts(prev => [...prev, finalConcept]);
+            };
+
+            const handleVoiceTranscript = (text) => {
+                const lower = text.toLowerCase();
+                for (let c of allConcepts) {
+                    if (lower.includes(c.toLowerCase())) {
+                        setConcept(c);
+                        break;
+                    }
+                }
+                const numbers = text.match(/\d+([.,]\d+)?/);
+                if (numbers) {
+                    setAmount(numbers[0].replace(',', '.'));
+                }
+                showMessage(`Voz interpretada: ${text}`);
+            };
+
+            const calcData = useMemo(() => {
+                const monthIncomes = incomes.filter(i => i.date === calcMonth).reduce((sum, i) => sum + i.amount, 0);
+                const monthExpensesAndSavings = expenses.filter(e => e.date === calcMonth).reduce((sum, e) => sum + e.amount, 0);
+                const currentRemaining = monthIncomes - monthExpensesAndSavings;
+                return { incomes: monthIncomes, expenses: monthExpensesAndSavings, remaining: currentRemaining };
+            }, [calcMonth, incomes, expenses]);
+
+            const months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+            const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+            
+            const getValidMonthsForPeriod = (period) => {
+                if (period === 'Q1') return ['01', '02', '03'];
+                if (period === 'Q2') return ['04', '05', '06'];
+                if (period === 'Q3') return ['07', '08', '09'];
+                if (period === 'Q4') return ['10', '11', '12'];
+                if (period === 'H1') return ['01', '02', '03', '04', '05', '06'];
+                if (period === 'H2') return ['07', '08', '09', '10', '11', '12'];
+                return months;
+            };
+            const activeMonths = getValidMonthsForPeriod(selectedPeriod);
+
+            const yearExpenses = expenses.filter(e => e.date.startsWith(selectedYear));
+            const tableMap = {};
+            yearExpenses.forEach(exp => {
+                const key = exp.concept;
+                if (!tableMap[key]) tableMap[key] = { concept: exp.concept, months: {}, total: 0 };
+                const m = exp.date.slice(5, 7);
+                tableMap[key].months[m] = (tableMap[key].months[m] || 0) + exp.amount;
+                if (activeMonths.includes(m)) {
+                    tableMap[key].total += exp.amount;
+                }
+            });
+
+            const tableRows = Object.values(tableMap).sort((a, b) => a.concept.localeCompare(b.concept));
+
+            const monthlyTotals = {};
+            let grandTotal = 0;
+            months.forEach(m => {
+                const sum = Object.values(tableMap).reduce((acc, row) => acc + (row.months[m] || 0), 0);
+                monthlyTotals[m] = sum;
+                if (activeMonths.includes(m)) grandTotal += sum;
+            });
+
+            const chartData = useMemo(() => {
+                const chartStartFull = `${chartStartYear}-${chartStartMonth}`;
+                const chartEndFull = `${chartEndYear}-${chartEndMonth}`;
+
+                const chartExpenses = expenses.filter(e => {
+                    if (chartStartFull && e.date < chartStartFull) return false;
+                    if (chartEndFull && e.date > chartEndFull) return false;
+                    if (!selectedConcepts.includes(e.concept)) return false;
+                    return true;
+                });
+                const chartDataMap = {};
+                chartExpenses.forEach(e => {
+                    if (!chartDataMap[e.date]) chartDataMap[e.date] = { Total: 0 };
+                    if (splitByConcept) chartDataMap[e.date][e.concept] = (chartDataMap[e.date][e.concept] || 0) + e.amount;
+                    else chartDataMap[e.date].Total = (chartDataMap[e.date].Total || 0) + e.amount;
+                });
+
+                const sortedChartMonths = Object.keys(chartDataMap).sort();
+                const datasets = [];
+                const colors = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef', '#f43f5e'];
+
+                if (splitByConcept) {
+                    const uniqueKeys = [...new Set(chartExpenses.map(e => e.concept))].sort();
+                    uniqueKeys.forEach((key, idx) => { datasets.push({ label: key, data: sortedChartMonths.map(m => chartDataMap[m][key] || 0), borderColor: colors[idx % colors.length], fill: false }); });
+                } else {
+                    datasets.push({ label: 'Suma Gastos/Ahorro', data: sortedChartMonths.map(m => chartDataMap[m].Total || 0), borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.2)', fill: true, tension: 0.3 });
+                }
+
+                return { labels: sortedChartMonths, datasets };
+            }, [expenses, chartStartYear, chartStartMonth, chartEndYear, chartEndMonth, selectedConcepts, splitByConcept]);
+
+            const { items: sortedTableRows, requestSort: requestTableSort } = useSortableData(tableRows);
+
+            return (
+                <div className="space-y-6 fade-in w-full max-w-full">
+                    <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-xl p-6 shadow-lg text-white">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                            <div>
+                                <h2 className="text-xl font-bold flex items-center gap-2"><span>🧮</span> Gasto Corriente Disponible</h2>
+                                <p className="text-gray-400 text-sm mt-1">Calcula cuánto sobra para gastos del día a día tras descontar los fijos y el ahorro.</p>
+                            </div>
+                            <div className="flex items-center gap-2 bg-gray-800 p-2 rounded-lg border border-gray-700 w-full sm:w-auto">
+                                <label className="text-sm font-bold text-gray-300">Mes a consultar:</label>
+                                <input type="month" value={calcMonth} onChange={e=>setCalcMonth(e.target.value)} className="p-1 rounded bg-gray-700 text-white border-gray-600 outline-none flex-1 sm:flex-none" />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
+                                <span className="text-sm text-gray-400 block mb-1">Ingresos Totales del Mes</span>
+                                <span className="text-2xl font-bold text-green-400">{formatCurrency(calcData.incomes)}</span>
+                            </div>
+                            <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
+                                <span className="text-sm text-gray-400 block mb-1">- Fijos + Ahorro Registrados</span>
+                                <span className="text-2xl font-bold text-red-400">{formatCurrency(calcData.expenses)}</span>
+                            </div>
+                            <div className="bg-gray-800 p-4 rounded-lg border border-yellow-500/50 shadow-[0_0_15px_rgba(234,179,8,0.1)]">
+                                <span className="text-sm text-yellow-500 font-bold block mb-1">= Resto Gasto Corriente</span>
+                                <span className="text-3xl font-black text-white">{formatCurrency(calcData.remaining)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className={`p-6 rounded-xl shadow-sm border transition-colors ${editingId ? 'bg-amber-50 border-amber-300' : 'bg-white border-gray-200'}`}>
+                        <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
+                            <h2 className={`text-lg font-bold flex items-center gap-2 ${editingId ? 'text-amber-900' : 'text-red-900'}`}>
+                                <span>{editingId ? '✏️' : '➕'}</span> {editingId ? 'Editando Gasto Seleccionado' : 'Añadir Gasto Fijo / Ahorro'}
+                            </h2>
+                            <div className="flex items-center gap-2">
+                                <VoiceInputButton onTranscript={handleVoiceTranscript} showMessage={showMessage} />
+                                {editingId && (
+                                    <button type="button" onClick={handleCancelEdit} className="text-xs font-bold text-red-600 bg-red-50 px-3 py-1 rounded hover:bg-red-100">Cancelar</button>
+                                )}
+                            </div>
+                        </div>
+                        <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                            <div className="md:col-span-1">
+                                <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Año</label>
+                                <input type="text" value={selectedYearInput} onChange={e=>setSelectedYearInput(e.target.value)} className="w-full p-2 border rounded bg-gray-50 outline-red-500 font-bold" required />
+                            </div>
+                            <div className="md:col-span-1">
+                                <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Mes</label>
+                                <select value={selectedMonthInput} onChange={e=>setSelectedMonthInput(e.target.value)} className="w-full p-2 border rounded bg-gray-50 outline-red-500 font-bold">
+                                    {months.map((m, idx) => <option key={m} value={m}>{monthNames[idx]}</option>)}
+                                </select>
+                            </div>
+                            <div className="md:col-span-1">
+                                <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Concepto</label>
+                                <select value={concept} onChange={e=>{setConcept(e.target.value); setCustomConcept('');}} className="w-full p-2 border rounded outline-red-500">
+                                    {allConcepts.map(c => <option key={c} value={c}>{c}</option>)}
+                                    <option value="Otros">Otros (Escribir Nuevo...)</option>
+                                </select>
+                            </div>
+                            {concept === 'Otros' && (
+                                <div className="md:col-span-1">
+                                    <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Especificar</label>
+                                    <input type="text" value={customConcept} onChange={e=>setCustomConcept(e.target.value)} className="w-full p-2 border rounded outline-red-500" required />
+                                </div>
+                            )}
+                            <div className="md:col-span-1">
+                                <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Importe (€)</label>
+                                <input type="number" step="0.01" value={amount} onChange={e=>setAmount(e.target.value)} list="historical-amounts-gastos" className="w-full p-2 border rounded font-bold text-red-700 outline-red-500" required />
+                                <datalist id="historical-amounts-gastos">
+                                    {historicalAmounts.map((amt, idx) => <option key={idx} value={amt} />)}
+                                </datalist>
+                            </div>
+                            <div className="md:col-span-1">
+                                <button type="submit" className={`w-full text-white p-2 rounded font-bold shadow transition-colors ${editingId ? 'bg-amber-600 hover:bg-amber-700' : 'bg-red-600 hover:bg-red-700'}`}>
+                                    {editingId ? 'Actualizar' : 'Guardar'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden w-full">
+                        <div className="bg-gray-50 p-4 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                            <h2 className="text-lg font-bold text-gray-800">Desglose Mensual de Gastos</h2>
+                            <div className="flex items-center gap-3 bg-white px-3 py-1.5 rounded border shadow-sm flex-wrap">
+                                <div className="flex items-center gap-1">
+                                    <label className="text-xs font-bold text-gray-500 uppercase">Año:</label>
+                                    <input type="text" value={selectedYear} onChange={e=>setSelectedYear(e.target.value)} className="w-20 p-1 rounded bg-transparent font-bold text-red-700 outline-none border text-center" />
+                                </div>
+                                <div className="w-px h-6 bg-gray-300 hidden sm:block"></div>
+                                <div className="flex items-center gap-1">
+                                    <label className="text-xs font-bold text-gray-500 uppercase">Ver:</label>
+                                    <select value={selectedPeriod} onChange={e=>setSelectedPeriod(e.target.value)} className="p-1 rounded bg-transparent font-bold text-gray-700 outline-none border-none cursor-pointer">
+                                        <option value="Anual">Todo el Año</option>
+                                        <option value="Q1">1º Trimestre</option>
+                                        <option value="Q2">2º Trimestre</option>
+                                        <option value="Q3">3º Trimestre</option>
+                                        <option value="Q4">4º Trimestre</option>
+                                        <option value="H1">1º Semestre</option>
+                                        <option value="H2">2º Semestre</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="w-full overflow-x-auto">
+                            <table className="w-full text-sm text-right">
+                                <thead className="bg-white border-b">
+                                    <tr>
+                                        <th onClick={() => requestTableSort('concept')} className="px-4 py-3 text-left font-bold text-gray-700 min-w-[200px] cursor-pointer hover:bg-gray-100">Concepto ↕</th>
+                                        {months.map((m, i) => (
+                                            <th key={m} className={`px-2 py-3 font-semibold text-right ${activeMonths.includes(m) ? 'text-gray-900 bg-gray-50' : 'text-gray-400'}`}>{monthNames[i]}</th>
+                                        ))}
+                                        <th onClick={() => requestTableSort('total')} className="px-4 py-3 font-black text-red-800 bg-red-50/50 text-right cursor-pointer hover:bg-red-100">TOTAL PERÍODO ↕</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {sortedTableRows.length === 0 ? <tr><td colSpan="14" className="text-center py-8 text-gray-400">Sin gastos en este periodo.</td></tr> :
+                                        sortedTableRows.map((row) => (
+                                            <tr key={row.concept} className="hover:bg-gray-50">
+                                                <td className="px-4 py-2 text-left font-medium text-gray-700">{row.concept}</td>
+                                                {months.map(m => (
+                                                    <td key={m} className={`px-2 py-2 text-right ${activeMonths.includes(m) ? 'text-gray-800 font-medium' : 'text-gray-300'}`}>
+                                                        {row.months[m] ? formatCurrency(row.months[m]) : '-'}
+                                                    </td>
+                                                ))}
+                                                <td className="px-4 py-2 font-bold text-gray-900 bg-red-50/30 text-right">{formatCurrency(row.total)}</td>
+                                            </tr>
+                                        ))}
+                                </tbody>
+                                <tfoot className="bg-gray-50 border-t-2 font-bold">
+                                    <tr>
+                                        <td className="px-4 py-3 text-left text-gray-700">TOTAL MENSUAL</td>
+                                        {months.map(m => (
+                                            <td key={m} className={`px-2 py-3 text-right ${activeMonths.includes(m) ? 'text-gray-900' : 'text-gray-400'}`}>
+                                                {monthlyTotals[m] ? formatCurrency(monthlyTotals[m]) : '-'}
+                                            </td>
+                                        ))}
+                                        <td className="px-4 py-3 font-black text-red-700 bg-red-50/50 text-lg text-right">{formatCurrency(grandTotal)}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 w-full">
+                        <h2 className="text-lg font-bold mb-4 text-gray-800 flex items-center gap-2">
+                            <span>📈</span> Gráfica Interactiva
+                        </h2>
+                        <div className="bg-red-50 p-4 rounded-xl border border-red-100 mb-6 space-y-4">
+                            <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-start sm:items-end">
+                                <div>
+                                    <label className="block text-xs font-bold text-red-900 uppercase">Desde (Año / Mes)</label>
+                                    <div className="flex gap-2">
+                                        <input type="text" value={chartStartYear} onChange={e=>setChartStartYear(e.target.value)} className="p-1 border rounded text-sm bg-white w-20 outline-red-500 font-bold" />
+                                        <select value={chartStartMonth} onChange={e=>setChartStartMonth(e.target.value)} className="p-1 border rounded text-sm bg-white outline-red-500">
+                                            {months.map((m, idx)=><option key={m} value={m}>{monthNames[idx]}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-red-900 uppercase">Hasta (Año / Mes)</label>
+                                    <div className="flex gap-2">
+                                        <input type="text" value={chartEndYear} onChange={e=>setChartEndYear(e.target.value)} className="p-1 border rounded text-sm bg-white w-20 outline-red-500 font-bold" />
+                                        <select value={chartEndMonth} onChange={e=>setChartEndMonth(e.target.value)} className="p-1 border rounded text-sm bg-white outline-red-500">
+                                            {months.map((m, idx)=><option key={m} value={m}>{monthNames[idx]}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                                <button onClick={()=>{setChartStartYear('2020'); setChartEndYear(currentYearStr); setChartStartMonth('01'); setChartEndMonth('12');}} className="text-xs font-bold text-red-600 hover:underline mb-1">Ver todo el histórico</button>
+                            </div>
+                            <div className="bg-white p-3 border rounded shadow-sm">
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className="text-xs font-bold text-red-900 uppercase block">Mezclar Conceptos:</span>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {allUsedConcepts.map(c => (
+                                        <label key={c} className={`flex items-center gap-1 text-sm px-2 py-1 rounded border cursor-pointer ${selectedConcepts.includes(c) ? 'bg-red-100 border-red-400 font-bold' : 'bg-gray-50'}`}>
+                                            <input type="checkbox" checked={selectedConcepts.includes(c)} onChange={()=>handleToggleConcept(c)} className="w-4 h-4" /> {c}
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                        {chartData.labels.length > 0 ? <SimpleChart data={chartData} type="line" options={LINE_CHART_OPTIONS} /> : <p className="text-center py-6 text-gray-500">Selecciona datos para graficar.</p>}
+                    </div>
+
+                    <div className="bg-white p-4 rounded-xl shadow-sm border mt-4 w-full">
+                        <details>
+                            <summary className="font-bold text-sm text-red-600 cursor-pointer outline-none">Historial completo para editar o borrar errores</summary>
+                            <div className="mt-4 max-h-40 overflow-y-auto pr-2">
+                                <ul className="text-sm divide-y">
+                                    {expenses.slice().reverse().map(e => (
+                                        <li key={e.id} className="py-2 flex justify-between items-center hover:bg-gray-50 px-2 rounded">
+                                            <span><span className="font-bold text-gray-600">{e.date}</span> - {e.concept}</span>
+                                            <div className="flex items-center gap-3">
+                                                <span className="font-medium text-red-600">{formatCurrency(e.amount)}</span>
+                                                <button onClick={()=>handleStartEdit(e)} className="px-2 py-1 bg-amber-50 text-amber-700 rounded hover:bg-amber-100 text-xs font-bold">Editar</button>
+                                                <button onClick={()=>{deleteExpense(e.id); showMessage("Gasto eliminado");}} className="px-2 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100 text-xs font-bold">Borrar</button>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            );
+        };
+
+        const InversionesTab = ({ funds, setFunds, snapshots, addSnapshot, updateSnapshot, deleteSnapshot, showMessage }) => {
+            const currentYearStr = new Date().getFullYear().toString();
+            const months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+            const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+            const [selectedYear, setSelectedYear] = useState(currentYearStr);
+            const latestSnap = snapshots.length > 0 ? snapshots.reduce((latest, s) => s.date > latest.date ? s : latest) : null;
+            
+            const [snapDate, setSnapDate] = useState(new Date().toISOString().slice(0, 10));
+            const [snapLiquidity, setSnapLiquidity] = useState(0);
+            const [snapFundsData, setSnapFundsData] = useState({});
+            const [editingSnapId, setEditingSnapId] = useState(null);
+
+            const [showFundModal, setShowFundModal] = useState(false);
+            const [editingFund, setEditingFund] = useState(null);
+            const [fundName, setFundName] = useState('');
+            const [fundIsin, setFundIsin] = useState('');
+            const [fundStart, setFundStart] = useState('2026-01-01');
+            const [fundType, setFundType] = useState('Renta Variable');
+            const [fundGestora, setFundGestora] = useState('Varios');
+
+            useEffect(() => {
+                if (latestSnap && !editingSnapId) {
+                    setSnapLiquidity(latestSnap.liquidity);
+                    const initialData = {};
+                    funds.forEach(f => { initialData[f.id] = { ingreso: latestSnap.fundsData?.[f.id]?.ingreso || 0, value: latestSnap.fundsData?.[f.id]?.value || 0 }; });
+                    setSnapFundsData(initialData);
+                } else if (!editingSnapId) {
+                    const initialData = {};
+                    funds.forEach(f => { initialData[f.id] = { ingreso: 0, value: 0 }; });
+                    setSnapFundsData(initialData);
+                }
+            }, [latestSnap, funds, editingSnapId]);
+
+            const handleFundDataChange = (id, field, val) => {
+                setSnapFundsData(prev => ({ ...prev, [id]: { ...prev[id], [field]: parseFloat(val) || 0 } }));
+            };
+
+            const handleSaveSnapshot = (e) => {
+                e.preventDefault();
+                const newSnap = { id: editingSnapId || generateId(), date: snapDate, liquidity: parseFloat(snapLiquidity) || 0, fundsData: { ...snapFundsData } };
+                if (editingSnapId) {
+                    updateSnapshot(newSnap);
+                    showMessage("Fotografía actualizada correctamente");
+                    setEditingSnapId(null);
+                } else {
+                    addSnapshot(newSnap);
+                    showMessage("Fotografía guardada correctamente");
+                }
+            };
+
+            const handleOpenAddFund = () => {
+                setEditingFund(null);
+                setFundName('');
+                setFundIsin('');
+                setFundStart(new Date().toISOString().slice(0, 10));
+                setFundType('Renta Variable');
+                setFundGestora('Varios');
+                setShowFundModal(true);
+            };
+
+            const handleOpenEditFund = (f) => {
+                setEditingFund(f);
+                setFundName(f.name);
+                setFundIsin(f.isin);
+                setFundStart(f.start);
+                setFundType(f.type);
+                setFundGestora(f.gestora);
+                setShowFundModal(true);
+            };
+
+            const handleSaveFundModal = (e) => {
+                e.preventDefault();
+                if (!fundName.trim()) return;
+                if (editingFund) {
+                    const updated = funds.map(f => f.id === editingFund.id ? { ...f, name: fundName, isin: fundIsin, start: fundStart, type: fundType, gestora: fundGestora } : f);
+                    setFunds(updated);
+                    showMessage("Fondo actualizado con éxito");
+                } else {
+                    const newF = { id: generateId(), name: fundName, isin: fundIsin || 'N/A', start: fundStart, type: fundType, gestora: fundGestora };
+                    setFunds([...funds, newF]);
+                    showMessage("Nuevo fondo añadido");
+                }
+                setShowFundModal(false);
+            };
+
+            const handleDeleteFund = (id) => {
+                if (confirm("¿Estás seguro de eliminar este fondo?")) {
+                    setFunds(funds.filter(f => f.id !== id));
+                    showMessage("Fondo eliminado");
+                }
+            };
+
+            const yearSnaps = snapshots.filter(s => s.date.startsWith(selectedYear));
+            const currentSnap = yearSnaps.length > 0 ? yearSnaps.reduce((latest, s) => s.date > latest.date ? s : latest) : null;
+            const prevYear = (parseInt(selectedYear) - 1).toString();
+            const prevYearSnaps = snapshots.filter(s => s.date.startsWith(prevYear));
+            const prevYearSnap = prevYearSnaps.length > 0 ? prevYearSnaps.reduce((latest, s) => s.date > latest.date ? s : latest) : null;
+
+            const table1Rows = funds.map(f => {
+                const ing = currentSnap?.fundsData?.[f.id]?.ingreso || 0;
+                const val = currentSnap?.fundsData?.[f.id]?.value || 0;
+                const prevIng = prevYearSnap?.fundsData?.[f.id]?.ingreso || 0;
+                const prevVal = prevYearSnap?.fundsData?.[f.id]?.value || 0;
+                const ingresoAno = ing - prevIng;
+                const revalHist = val - ing;
+                const revalAno = val - prevVal - ingresoAno;
+                const pctRevalHist = ing > 0 ? (revalHist / ing) * 100 : 0;
+                const pctRevalAno = (prevVal + ingresoAno) > 0 ? (revalAno / (prevVal + ingresoAno)) * 100 : 0; 
+                return { ...f, ing, val, ingresoAno, revalHist, revalAno, pctRevalHist, pctRevalAno };
+            });
+
+            const totalCartera = table1Rows.reduce((acc, r) => acc + r.val, 0);
+            const totalIngreso = table1Rows.reduce((acc, r) => acc + r.ing, 0);
+            
+            const totalRVandPP_Val = table1Rows.filter(r => r.type.includes('Variable') || r.name.toLowerCase().includes('pensiones')).reduce((acc, r) => acc + r.val, 0);
+            const totalRVandPP_Ing = table1Rows.filter(r => r.type.includes('Variable') || r.name.toLowerCase().includes('pensiones')).reduce((acc, r) => acc + r.ing, 0);
+
+            const gestoraTotals = {}; const tipoTotals = {};
+            table1Rows.forEach(r => {
+                gestoraTotals[r.gestora] = (gestoraTotals[r.gestora] || 0) + r.val;
+                tipoTotals[r.type] = (tipoTotals[r.type] || 0) + r.val;
+            });
+            table1Rows.forEach(r => {
+                r.pesoGestora = gestoraTotals[r.gestora] > 0 ? (r.val / gestoraTotals[r.gestora]) * 100 : 0;
+                r.pesoTipo = tipoTotals[r.type] > 0 ? (r.val / tipoTotals[r.type]) * 100 : 0;
+                r.pesoCartera = totalCartera > 0 ? (r.val / totalCartera) * 100 : 0;
+                r.pesoIngreso = totalIngreso > 0 ? (r.ing / totalIngreso) * 100 : 0;
+            });
+
+            const { items: sortedTable1Rows, requestSort: requestTable1Sort } = useSortableData(table1Rows);
+
+            const sortedSnapsDesc = [...snapshots].sort((a,b) => b.date.localeCompare(a.date));
+            const historyRows = sortedSnapsDesc.map((snap, idx, arr) => {
+                const nextSnap = arr[idx + 1];
+                const getTotals = (s) => {
+                    if (!s) return { ing: null, rf: null, rv: null, cartera: null, patrimonio: null, liquidity: null };
+                    if (s.table2) {
+                        return {
+                            ing: s.table2.ingresoTotal ?? null,
+                            rf: s.table2.rf ?? null,
+                            rv: s.table2.rv ?? null,
+                            cartera: s.table2.cartera ?? null,
+                            patrimonio: s.table2.patrimonio ?? null,
+                            liquidity: s.liquidity ?? null
+                        };
+                    }
+                    if (s.summary) {
+                        return {
+                            ing: s.summary.ingresoTotal ?? s.summary.ing ?? null,
+                            rf: s.summary.rf ?? null,
+                            rv: s.summary.rv ?? null,
+                            cartera: s.summary.cartera ?? null,
+                            patrimonio: s.summary.patrimonio ?? null,
+                            liquidity: s.liquidity ?? null
+                        };
+                    }
+                    let ing=0, rf=0, rv=0;
+                    funds.forEach(f => {
+                        const sv = s.fundsData?.[f.id]?.ingreso || 0;
+                        const vl = s.fundsData?.[f.id]?.value || 0;
+                        ing += sv;
+                        if (f.type.includes('Fija')) rf += vl; else rv += vl;
+                    });
+                    return { ing, rf, rv, cartera: rf+rv, patrimonio: rf+rv+(s.liquidity || 0), liquidity: s.liquidity || 0 };
+                };
+                const curr = getTotals(snap);
+                const hasExplicitDiffs = !!snap.table2;
+                const prev = getTotals(nextSnap);
+                const diffCartera = hasExplicitDiffs ? snap.table2.diffCartera : (curr.cartera != null && prev.cartera != null ? curr.cartera - prev.cartera : null);
+                const pctCartera = hasExplicitDiffs ? snap.table2.diffCarteraPct : (diffCartera != null && prev.cartera > 0 ? (diffCartera / prev.cartera) * 100 : null);
+                const diffPatrimonio = hasExplicitDiffs ? snap.table2.diffPatrimonio : (curr.patrimonio != null && prev.patrimonio != null ? curr.patrimonio - prev.patrimonio : null);
+                const pctPatrimonio = hasExplicitDiffs ? snap.table2.diffPatrimonioPct : (diffPatrimonio != null && prev.patrimonio > 0 ? (diffPatrimonio / prev.patrimonio) * 100 : null);
+                return { id: snap.id, date: snap.date, liquidity: snap.liquidity, ...curr, diffCartera, pctCartera, diffPatrimonio, pctPatrimonio };
+            });
+
+            const [compareMode, setCompareMode] = useState('semanal');
+            
+            const processedHistoryRows = useMemo(() => {
+                if (compareMode === 'semanal') return historyRows;
+                const map = {};
+                historyRows.forEach(r => {
+                    const key = compareMode === 'mensual' ? r.date.substring(0, 7) : r.date.substring(0, 4);
+                    if (!map[key] || r.date > map[key].date) map[key] = r;
+                });
+                const groupedArr = Object.values(map).sort((a,b) => b.date.localeCompare(a.date));
+                return groupedArr.map((snap, idx, arr) => {
+                    const nextSnap = arr[idx + 1];
+                    const prevCartera = nextSnap ? nextSnap.cartera : snap.cartera;
+                    const prevPatrimonio = nextSnap ? nextSnap.patrimonio : snap.patrimonio;
+                    const hasCartera = snap.cartera != null && prevCartera != null;
+                    const hasPatrimonio = snap.patrimonio != null && prevPatrimonio != null;
+                    const diffCartera = hasCartera ? snap.cartera - prevCartera : null;
+                    const pctCartera = hasCartera && prevCartera > 0 ? (diffCartera / prevCartera) * 100 : null;
+                    const diffPatrimonio = hasPatrimonio ? snap.patrimonio - prevPatrimonio : null;
+                    const pctPatrimonio = hasPatrimonio && prevPatrimonio > 0 ? (diffPatrimonio / prevPatrimonio) * 100 : null;
+                    return { ...snap, diffCartera, pctCartera, diffPatrimonio, pctPatrimonio };
+                });
+            }, [historyRows, compareMode]);
+
+            const CHART_VARS = ['Ingreso Total', 'Renta Fija', 'Renta Variable', 'Cartera Total', 'Patrimonio Total'];
+            const [selectedChartVars, setSelectedChartVars] = useState(['Ingreso Total', 'Cartera Total']);
+            const [chartStartYear, setChartStartYear] = useState('2020');
+            const [chartEndYear, setChartEndYear] = useState(currentYearStr);
+            const [chartStartMonth, setChartStartMonth] = useState('01');
+            const [chartEndMonth, setChartEndMonth] = useState('12');
+
+            const handleToggleChartVar = (v) => {
+                if (selectedChartVars.includes(v)) setSelectedChartVars(selectedChartVars.filter(x => x !== v));
+                else setSelectedChartVars([...selectedChartVars, v]);
+            };
+
+            const chartData = useMemo(() => {
+                const chartStartFull = `${chartStartYear}-${chartStartMonth}`;
+                const chartEndFull = `${chartEndYear}-${chartEndMonth}`;
+
+                const chartSnaps = historyRows.slice().reverse().filter(r => {
+                    if (chartStartFull && r.date < chartStartFull) return false;
+                    if (chartEndFull && r.date > chartEndFull) return false;
+                    return true;
+                });
+
+                const chartDatasets = [];
+                const colors = { 'Ingreso Total': '#9ca3af', 'Renta Fija': '#eab308', 'Renta Variable': '#ef4444', 'Cartera Total': '#3b82f6', 'Patrimonio Total': '#10b981' };
+
+                selectedChartVars.forEach(v => {
+                    let data = [];
+                    if(v === 'Ingreso Total') data = chartSnaps.map(r => r.ing);
+                    if(v === 'Renta Fija') data = chartSnaps.map(r => r.rf);
+                    if(v === 'Renta Variable') data = chartSnaps.map(r => r.rv);
+                    if(v === 'Cartera Total') data = chartSnaps.map(r => r.cartera);
+                    if(v === 'Patrimonio Total') data = chartSnaps.map(r => r.patrimonio);
+                    chartDatasets.push({ label: v, data: data, borderColor: colors[v], backgroundColor: colors[v], fill: false, tension: 0.1, borderWidth: v.includes('Total') ? 3 : 2 });
+                });
+                return { labels: chartSnaps.map(r => r.date), datasets: chartDatasets };
+            }, [historyRows, chartStartYear, chartStartMonth, chartEndYear, chartEndMonth, selectedChartVars]);
+
+            return (
+                <div className="space-y-6 fade-in w-full max-w-full">
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-teal-200">
+                        <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
+                            <h2 className="font-black text-teal-800 text-lg flex items-center gap-2"><span>📝</span> {editingSnapId ? 'Editando Fotografía' : 'Añadir Fotografía de la Cartera'}</h2>
+                            <div className="flex items-center gap-2">
+                                <button type="button" onClick={handleOpenAddFund} className="px-3 py-2 bg-teal-600 text-white rounded font-bold text-xs hover:bg-teal-700 shadow">➕ Gestionar Fondos (Añadir/Editar/Borrar)</button>
+                            </div>
+                        </div>
+                        <details open={snapshots.length === 0 || editingSnapId}>
+                            <summary className="font-bold text-sm text-teal-700 cursor-pointer outline-none">Desplegar formulario de actualización</summary>
+                            <form onSubmit={handleSaveSnapshot} className="mt-4 border-t pt-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                    <div><label className="block text-sm font-bold text-gray-700">Fecha de la foto</label><input type="date" value={snapDate} onChange={e=>setSnapDate(e.target.value)} className="w-full p-2 border rounded bg-gray-50 outline-teal-500" required /></div>
+                                    <div><label className="block text-sm font-bold text-teal-700">Liquidez en Bancos (€)</label><input type="number" step="0.01" value={snapLiquidity} onChange={e=>setSnapLiquidity(e.target.value)} className="w-full p-2 border rounded border-teal-300 font-bold outline-teal-500" required /></div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[50vh] overflow-y-auto pr-2">
+                                    {funds.map(f => (
+                                        <div key={f.id} className="p-3 bg-gray-50 border rounded hover:border-teal-300 transition-colors">
+                                            <div className="flex justify-between items-start">
+                                                <p className="font-bold text-sm text-gray-800 truncate" title={f.name}>{f.name}</p>
+                                                <button type="button" onClick={()=>handleOpenEditFund(f)} className="text-[10px] text-blue-600 hover:underline">Editar Fondo</button>
+                                            </div>
+                                            <p className="text-[10px] text-gray-500 uppercase">{f.type} | {f.gestora}</p>
+                                            <div className="grid grid-cols-2 gap-2 mt-3">
+                                                <div><label className="block text-[10px] font-bold text-gray-600 mb-1">INGRESO</label><input type="number" step="0.01" value={snapFundsData[f.id]?.ingreso ?? ''} onChange={e=>handleFundDataChange(f.id, 'ingreso', e.target.value)} className="w-full p-1.5 border rounded text-sm outline-teal-500" /></div>
+                                                <div><label className="block text-[10px] font-bold text-teal-800 mb-1">VALOR ACTUAL</label><input type="number" step="0.01" value={snapFundsData[f.id]?.value ?? ''} onChange={e=>handleFundDataChange(f.id, 'value', e.target.value)} className="w-full p-1.5 border rounded border-teal-300 font-bold text-sm text-teal-900 outline-teal-500" /></div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="flex gap-2 mt-6">
+                                    <button type="submit" className="flex-1 bg-teal-700 text-white p-3 rounded-lg font-black hover:bg-teal-800 shadow-lg transition-colors">{editingSnapId ? 'Actualizar Fotografía' : 'Guardar Fotografía Semanal'}</button>
+                                    {editingSnapId && <button type="button" onClick={()=>{setEditingSnapId(null);}} className="px-6 bg-gray-300 text-gray-700 rounded-lg font-bold">Cancelar</button>}
+                                </div>
+                            </form>
+                        </details>
+                    </div>
+
+                    {showFundModal && (
+                        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                            <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full fade-in">
+                                <h3 className="text-lg font-bold text-teal-900 mb-4">{editingFund ? 'Editar Fondo' : 'Añadir Nuevo Fondo'}</h3>
+                                <form onSubmit={handleSaveFundModal} className="space-y-4">
+                                    <div><label className="block text-xs font-bold text-gray-600 uppercase mb-1">Nombre del Fondo</label><input type="text" value={fundName} onChange={e=>setFundName(e.target.value)} className="w-full p-2 border rounded" required /></div>
+                                    <div><label className="block text-xs font-bold text-gray-600 uppercase mb-1">ISIN</label><input type="text" value={fundIsin} onChange={e=>setFundIsin(e.target.value)} className="w-full p-2 border rounded" placeholder="Ej: ES0140072010 o N5116" /></div>
+                                    <div><label className="block text-xs font-bold text-gray-600 uppercase mb-1">Fecha de Inicio</label><input type="date" value={fundStart} onChange={e=>setFundStart(e.target.value)} className="w-full p-2 border rounded" required /></div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Tipología</label>
+                                        <select value={fundType} onChange={e=>setFundType(e.target.value)} className="w-full p-2 border rounded">
+                                            <option value="Renta Variable">Renta Variable</option>
+                                            <option value="Renta Fija Mixta">Renta Fija Mixta</option>
+                                            <option value="Renta Fija">Renta Fija</option>
+                                            <option value="Plan de Pensiones">Plan de Pensiones</option>
+                                            <option value="Liquidez">Liquidez</option>
+                                        </select>
+                                    </div>
+                                    <div><label className="block text-xs font-bold text-gray-600 uppercase mb-1">Gestora</label><input type="text" value={fundGestora} onChange={e=>setFundGestora(e.target.value)} className="w-full p-2 border rounded" required /></div>
+                                    
+                                    <div className="flex gap-2 pt-2">
+                                        <button type="submit" className="flex-1 bg-teal-600 text-white p-2 rounded font-bold hover:bg-teal-700">Guardar Fondo</button>
+                                        {editingFund && <button type="button" onClick={()=>handleDeleteFund(editingFund.id)} className="px-4 bg-red-100 text-red-600 rounded font-bold">Eliminar</button>}
+                                        <button type="button" onClick={()=>setShowFundModal(false)} className="px-4 bg-gray-200 text-gray-700 rounded font-bold">Cancelar</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mt-6 w-full">
+                        <div className="bg-gray-50 p-4 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                            <h2 className="text-lg font-bold text-gray-800">Tabla 1: Desglose de Cartera y Revalorización</h2>
+                            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded border shadow-sm">
+                                <label className="text-xs font-bold text-gray-500 uppercase">Ver Año:</label>
+                                <input type="text" value={selectedYear} onChange={e=>setSelectedYear(e.target.value)} className="w-20 p-1 rounded bg-transparent font-bold text-teal-700 outline-none border text-center" />
+                            </div>
+                        </div>
+                        <div className="w-full overflow-x-auto">
+                            <table className="w-full text-xs text-right">
+                                <thead className="bg-gray-100 border-b">
+                                    <tr>
+                                        <th colSpan="3" className="px-3 py-2 text-left text-gray-600 border-r border-gray-200">DATOS DEL FONDO</th>
+                                        <th colSpan="3" className="px-3 py-2 text-center text-blue-800 bg-blue-50/50 border-r border-blue-100">VALORES (€)</th>
+                                        <th colSpan="4" className="px-3 py-2 text-center text-green-800 bg-green-50/50 border-r border-green-100">REVALORIZACIÓN</th>
+                                        <th colSpan="4" className="px-3 py-2 text-center text-purple-800 bg-purple-50/50">DISTRIBUCIÓN Y PESOS</th>
+                                    </tr>
+                                    <tr className="border-b text-gray-700">
+                                        <th onClick={() => requestTable1Sort('start')} className="px-2 py-2 text-left font-semibold cursor-pointer hover:bg-gray-200">Fecha ↕</th>
+                                        <th onClick={() => requestTable1Sort('isin')} className="px-2 py-2 text-left font-semibold cursor-pointer hover:bg-gray-200">ISIN ↕</th>
+                                        <th onClick={() => requestTable1Sort('name')} className="px-3 py-2 text-left font-semibold border-r border-gray-200 cursor-pointer hover:bg-gray-200">Nombre Fondo ↕</th>
+                                        <th onClick={() => requestTable1Sort('ing')} className="px-2 py-2 font-semibold bg-blue-50/50 text-right cursor-pointer hover:bg-blue-100">Ingreso ↕</th>
+                                        <th onClick={() => requestTable1Sort('ingresoAno')} className="px-2 py-2 font-semibold bg-blue-50/50 text-right cursor-pointer hover:bg-blue-100">Ingreso Año ↕</th>
+                                        <th onClick={() => requestTable1Sort('val')} className="px-2 py-2 font-black text-blue-900 bg-blue-50/30 border-r border-blue-100 text-right cursor-pointer hover:bg-blue-100">Valor Actual ↕</th>
+                                        <th onClick={() => requestTable1Sort('revalHist')} className="px-2 py-2 font-semibold bg-green-50/50 text-right cursor-pointer hover:bg-green-100">Total (€) ↕</th>
+                                        <th onClick={() => requestTable1Sort('revalAno')} className="px-2 py-2 font-semibold bg-green-50/50 text-right cursor-pointer hover:bg-green-100">Año (€) ↕</th>
+                                        <th onClick={() => requestTable1Sort('pctRevalHist')} className="px-2 py-2 font-semibold bg-green-50/50 text-right cursor-pointer hover:bg-green-100">Total (%) ↕</th>
+                                        <th onClick={() => requestTable1Sort('pctRevalAno')} className="px-2 py-2 font-semibold bg-green-50/50 border-r border-green-100 text-right cursor-pointer hover:bg-green-100">Año (%) ↕</th>
+                                        <th onClick={() => requestTable1Sort('pesoGestora')} className="px-2 py-2 font-semibold bg-purple-50/50 text-right cursor-pointer hover:bg-purple-100">Por Gestora ↕</th>
+                                        <th onClick={() => requestTable1Sort('pesoTipo')} className="px-2 py-2 font-semibold bg-purple-50/50 text-right cursor-pointer hover:bg-purple-100">Por Tipología ↕</th>
+                                        <th onClick={() => requestTable1Sort('pesoCartera')} className="px-2 py-2 font-semibold bg-purple-50/50 text-right cursor-pointer hover:bg-purple-100">En Cartera ↕</th>
+                                        <th onClick={() => requestTable1Sort('pesoIngreso')} className="px-2 py-2 font-semibold bg-purple-50/50 text-right cursor-pointer hover:bg-purple-100">Del Ingreso ↕</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {sortedTable1Rows.length > 0 && currentSnap ? sortedTable1Rows.map(row => (
+                                        <tr key={row.id} className="hover:bg-gray-50">
+                                            <td className="px-2 py-2 text-left text-gray-500">{row.start}</td>
+                                            <td className="px-2 py-2 text-left text-gray-500">{row.isin}</td>
+                                            <td className="px-3 py-2 text-left font-bold text-gray-800 border-r border-gray-200">{row.name} <br/><span className="text-[10px] text-gray-400 font-normal">{row.gestora}</span></td>
+                                            <td className="px-2 py-2 bg-blue-50/10 text-right">{formatOptionalCurrency(row.ing)}</td>
+                                            <td className="px-2 py-2 bg-blue-50/10 text-right">{formatCurrency(row.ingresoAno)}</td>
+                                            <td className="px-2 py-2 font-black text-blue-900 bg-blue-50/30 border-r border-blue-100 text-right">{formatCurrency(row.val)}</td>
+                                            <td className={`px-2 py-2 font-bold bg-green-50/10 text-right ${row.revalHist >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(row.revalHist)}</td>
+                                            <td className={`px-2 py-2 font-medium bg-green-50/10 text-right ${row.revalAno >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(row.revalAno)}</td>
+                                            <td className={`px-2 py-2 font-bold bg-green-50/10 text-right ${row.pctRevalHist >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(row.pctRevalHist)}</td>
+                                            <td className={`px-2 py-2 font-medium bg-green-50/10 border-r border-green-100 text-right ${row.pctRevalAno >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(row.pctRevalAno)}</td>
+                                            <td className="px-2 py-2 text-purple-900 bg-purple-50/20 text-right">{formatPercent(row.pesoGestora)}</td>
+                                            <td className="px-2 py-2 text-purple-900 bg-purple-50/20 text-right">{formatPercent(row.pesoTipo)}</td>
+                                            <td className="px-2 py-2 font-bold text-purple-900 bg-purple-50/40 text-right">{formatPercent(row.pesoCartera)}</td>
+                                            <td className="px-2 py-2 text-purple-800 bg-purple-50/20 text-right">{formatPercent(row.pesoIngreso)}</td>
+                                        </tr>
+                                    )) : (
+                                        <tr><td colSpan="14" className="text-center py-8 text-gray-400">No hay fotografías registradas en {selectedYear}.</td></tr>
+                                    )}
+                                </tbody>
+                                {currentSnap && (
+                                    <tfoot className="bg-indigo-50 border-t-2 border-indigo-200 font-bold">
+                                        <tr>
+                                            <td colSpan="3" className="px-3 py-3 text-left text-indigo-900">SUBTOTAL RENTA VARIABLE + PLANES DE PENSIONES</td>
+                                            <td className="px-2 py-3 text-right">{formatCurrency(totalRVandPP_Ing)}</td>
+                                            <td className="px-2 py-3 text-right">-</td>
+                                            <td className="px-2 py-3 text-right text-indigo-900">{formatCurrency(totalRVandPP_Val)}</td>
+                                            <td colSpan="8" className="px-2 py-3 text-left text-gray-500 font-normal">Exposición bursátil combinada (RV + PP)</td>
+                                        </tr>
+                                    </tfoot>
+                                )}
+                            </table>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mt-6 w-full">
+                        <div className="bg-gray-50 p-4 border-b flex flex-col sm:flex-row justify-between items-center gap-4">
+                            <h2 className="text-lg font-bold text-gray-800">Tabla 2: Evolución Patrimonial</h2>
+                            <div className="flex items-center gap-2">
+                                <label className="text-xs font-bold text-gray-600 uppercase">Ver Diferencias por:</label>
+                                <select value={compareMode} onChange={e=>setCompareMode(e.target.value)} className="p-1 border rounded bg-white font-bold text-teal-700 text-xs">
+                                    <option value="semanal">Semanal</option>
+                                    <option value="mensual">Mensual (Cierre de mes)</option>
+                                    <option value="anual">Anual (Cierre de año)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="w-full overflow-x-auto max-h-[400px]">
+                            <table className="w-full text-xs text-right">
+                                <thead className="bg-white border-b sticky top-0 z-10 shadow-sm">
+                                    <tr>
+                                        <th className="px-4 py-3 text-left font-bold text-gray-700 bg-white">Fecha</th>
+                                        <th className="px-3 py-3 font-semibold text-gray-600 bg-white border-r text-right">Ingreso Total</th>
+                                        <th className="px-3 py-3 font-semibold text-yellow-700 bg-yellow-50 text-right">Valor RF Mixta</th>
+                                        <th className="px-3 py-3 font-semibold text-red-700 bg-red-50 text-right">Valor RV (+PP)</th>
+                                        <th className="px-4 py-3 font-black text-blue-800 bg-blue-100 border-x text-right">CARTERA TOTAL</th>
+                                        <th className="px-4 py-3 font-black text-teal-800 bg-teal-100 border-r text-right">PATRIMONIO TOTAL</th>
+                                        <th className="px-3 py-3 font-semibold text-gray-600 bg-white text-right">Dif. Cartera (€)</th>
+                                        <th className="px-3 py-3 font-semibold text-gray-600 bg-white border-r text-right">Dif. Cartera (%)</th>
+                                        <th className="px-3 py-3 font-semibold text-gray-600 bg-white text-right">Dif. Patrimonio (€)</th>
+                                        <th className="px-3 py-3 font-semibold text-gray-600 bg-white text-right">Dif. Patrimonio (%)</th>
+                                        <th className="px-2 py-3 bg-white"></th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {processedHistoryRows.length === 0 ? <tr><td colSpan="11" className="text-center py-6 text-gray-400">Sin registros</td></tr> :
+                                        processedHistoryRows.map(row => (
+                                            <tr key={row.id} className="hover:bg-gray-50">
+                                                <td className="px-4 py-2 font-bold text-left text-gray-700">{row.date}</td>
+                                                <td className="px-3 py-2 text-gray-600 border-r text-right">{formatOptionalCurrency(row.ing)}</td>
+                                                <td className="px-3 py-2 text-yellow-900 bg-yellow-50/30 text-right">{formatOptionalCurrency(row.rf)}</td>
+                                                <td className="px-3 py-2 text-red-900 bg-red-50/30 text-right">{formatOptionalCurrency(row.rv)}</td>
+                                                <td className="px-4 py-2 font-black text-blue-900 bg-blue-50 border-x text-right">{formatOptionalCurrency(row.cartera)}</td>
+                                                <td className="px-4 py-2 font-black text-teal-900 bg-teal-50 border-r text-right">{formatOptionalCurrency(row.patrimonio)}</td>
+                                                <td className={`px-3 py-2 font-medium text-right ${row.diffCartera >= 0 ? 'text-green-600' : 'text-red-600'}`}>{row.diffCartera == null ? '—' : (row.diffCartera > 0 ? '+' : '') + formatCurrency(row.diffCartera)}</td>
+                                                <td className={`px-3 py-2 font-bold border-r text-right ${row.pctCartera >= 0 ? 'text-green-600' : 'text-red-600'}`}>{row.pctCartera == null ? '—' : (row.pctCartera > 0 ? '+' : '') + formatPercent(row.pctCartera)}</td>
+                                                <td className={`px-3 py-2 font-medium text-right ${row.diffPatrimonio >= 0 ? 'text-green-600' : 'text-red-600'}`}>{row.diffPatrimonio == null ? '—' : (row.diffPatrimonio > 0 ? '+' : '') + formatCurrency(row.diffPatrimonio)}</td>
+                                                <td className={`px-3 py-2 font-bold text-right ${row.pctPatrimonio >= 0 ? 'text-green-600' : 'text-red-600'}`}>{row.pctPatrimonio == null ? '—' : (row.pctPatrimonio > 0 ? '+' : '') + formatPercent(row.pctPatrimonio)}</td>
+                                                <td className="px-2 py-2 flex items-center gap-1">
+                                                    <button onClick={()=>{
+                                                        const targetSnap = snapshots.find(s => s.id === row.id);
+                                                        if (targetSnap?.summaryOnly && !targetSnap?.fundsData) {
+                                                            showMessage("Este registro histórico contiene solo el resumen de cartera y no el desglose por fondo.");
+                                                            return;
+                                                        }
+                                                        setSnapDate(row.date);
+                                                        setSnapLiquidity(row.liquidity || 0);
+                                                        setEditingSnapId(row.id);
+                                                        if (targetSnap && targetSnap.fundsData) setSnapFundsData(targetSnap.fundsData);
+                                                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                                                        showMessage("Cargado en el formulario superior para editar");
+                                                    }} className="px-1.5 py-1 bg-amber-50 text-amber-700 rounded hover:bg-amber-100 text-[10px] font-bold">Editar</button>
+                                                    <button onClick={()=>{deleteSnapshot(row.id); showMessage("Registro eliminado");}} className="text-red-400 hover:text-red-600 font-bold text-xs bg-red-50 p-1 rounded">Borrar</button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 w-full">
+                        <h2 className="text-lg font-bold mb-4 text-gray-800 flex items-center gap-2">
+                            <span>📈</span> Gráfica de Evolución
+                        </h2>
+                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6 space-y-4">
+                            <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-start sm:items-end">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 uppercase">Desde (Año / Mes)</label>
+                                    <div className="flex gap-2">
+                                        <input type="text" value={chartStartYear} onChange={e=>setChartStartYear(e.target.value)} className="p-1 border rounded text-sm bg-white w-20 outline-teal-500 font-bold" />
+                                        <select value={chartStartMonth} onChange={e=>setChartStartMonth(e.target.value)} className="p-1 border rounded text-sm bg-white outline-teal-500">
+                                            {months.map((m, idx)=><option key={m} value={m}>{monthNames[idx]}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 uppercase">Hasta (Año / Mes)</label>
+                                    <div className="flex gap-2">
+                                        <input type="text" value={chartEndYear} onChange={e=>setChartEndYear(e.target.value)} className="p-1 border rounded text-sm bg-white w-20 outline-teal-500 font-bold" />
+                                        <select value={chartEndMonth} onChange={e=>setChartEndMonth(e.target.value)} className="p-1 border rounded text-sm bg-white outline-teal-500">
+                                            {months.map((m, idx)=><option key={m} value={m}>{monthNames[idx]}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-white p-3 border rounded shadow-sm">
+                                <span className="text-xs font-bold text-gray-700 uppercase mb-2 block">Variables a comparar:</span>
+                                <div className="flex flex-wrap gap-3">
+                                    {CHART_VARS.map(v => (
+                                        <label key={v} className={`flex items-center gap-1 text-sm px-2 py-1 rounded border cursor-pointer select-none transition-colors ${selectedChartVars.includes(v) ? 'bg-teal-50 border-teal-400 font-bold text-teal-900 shadow-sm' : 'bg-white hover:bg-gray-50 text-gray-600'}`}>
+                                            <input type="checkbox" checked={selectedChartVars.includes(v)} onChange={()=>handleToggleChartVar(v)} className="w-4 h-4 text-teal-600 rounded" /> {v}
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                        {chartData.labels.length > 0 && selectedChartVars.length > 0 ? (
+                            <SimpleChart data={chartData} type="line" />
+                        ) : (
+                            <p className="text-center py-6 text-gray-500">Selecciona al menos una variable para dibujar la gráfica.</p>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const GeminisAITab = ({ incomes, expenses, snapshots, funds }) => {
+            const [messages, setMessages] = useState([
+                { role: 'assistant', content: '¡Hola! Soy tu Asesor Financiero inteligente impulsado por Gemini. Puedo analizar tus ingresos, gastos y cartera, y consultar información actualizada en internet. Antes de usarme, introduce tu clave de Gemini en la configuración inferior.' }
+            ]);
+            const [input, setInput] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [apiKey, setApiKey] = useState(() => {
+                try { return localStorage.getItem('eco_gemini_api_key') || ''; }
+                catch (_) { return ''; }
+            });
+            const [showKey, setShowKey] = useState(false);
+
+            const saveApiKey = (value) => {
+                setApiKey(value);
+                try {
+                    if (value.trim()) localStorage.setItem('eco_gemini_api_key', value.trim());
+                    else localStorage.removeItem('eco_gemini_api_key');
+                } catch (_) {}
+            };
+
+            const buildContext = () => {
+                const latest = snapshots.length
+                    ? snapshots.reduce((a, b) => b.date > a.date ? b : a)
+                    : null;
+
+                const latestSummary = latest?.summary || {};
+                const incomeTotal = incomes.reduce((sum, x) => sum + (Number(x.amount) || 0), 0);
+                const expenseTotal = expenses.reduce((sum, x) => sum + (Number(x.amount) || 0), 0);
+
+                return `
+DATOS FINANCIEROS LOCALES DE LA FAMILIA
+- Ingresos registrados: ${JSON.stringify(incomes)}
+- Gastos registrados: ${JSON.stringify(expenses)}
+- Fondos configurados: ${JSON.stringify(funds)}
+- Histórico patrimonial: ${JSON.stringify(snapshots)}
+- Total acumulado de ingresos registrados: ${incomeTotal.toFixed(2)} €
+- Total acumulado de gastos registrados: ${expenseTotal.toFixed(2)} €
+- Último patrimonio conocido: ${latestSummary.patrimonio ?? 'no disponible'} €
+- Última cartera conocida: ${latestSummary.cartera ?? 'no disponible'} €
+- Última renta fija: ${latestSummary.rf ?? 'no disponible'} €
+- Última renta variable: ${latestSummary.rv ?? 'no disponible'} €
+`;
+            };
+
+            const handleSend = async (e) => {
+                e.preventDefault();
+                if (!input.trim() || loading) return;
+
+                const key = apiKey.trim();
+                if (!key) {
+                    setMessages(prev => [...prev, {
+                        role: 'assistant',
+                        content: 'Para utilizar el Asesor IA necesitas introducir tu clave de Gemini en la configuración de abajo. La aplicación no lleva ninguna clave incorporada.'
+                    }]);
+                    return;
+                }
+
+                const userMsg = input.trim();
+                setInput('');
+                setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+                setLoading(true);
+
+                const systemPrompt = `Actúa como un asesor financiero familiar experto, prudente, cercano y claro.
+Analiza los datos financieros locales que se te proporcionan y distingue siempre entre datos reales del usuario, cálculos derivados y datos externos.
+No inventes cifras. Si falta un dato, dilo.
+No presentes recomendaciones de inversión personalizadas como certezas; explica riesgos, supuestos y alternativas.
+Cuando la pregunta requiera información actualizada de mercados, economía o actualidad, utiliza Google Search y basa esa parte de la respuesta en fuentes actuales.
+Responde en español salvo que el usuario pida otro idioma.`;
+
+                const userQuery = `${buildContext()}\n\nPregunta actual del usuario: ${userMsg}`;
+
+                try {
+                    const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent';
+
+                    const payload = {
+                        contents: [
+                            { role: 'user', parts: [{ text: userQuery }] }
+                        ],
+                        tools: [{ google_search: {} }],
+                        systemInstruction: { parts: [{ text: systemPrompt }] },
+                        generationConfig: {
+                            temperature: 0.3,
+                            maxOutputTokens: 2048
+                        }
+                    };
+
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-goog-api-key': key
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const result = await response.json();
+
+                    if (!response.ok) {
+                        const apiMessage = result?.error?.message || `HTTP ${response.status}`;
+                        throw new Error(apiMessage);
+                    }
+
+                    const parts = result?.candidates?.[0]?.content?.parts || [];
+                    const aiText = parts
+                        .map(part => part.text || '')
+                        .filter(Boolean)
+                        .join('\n')
+                        .trim();
+
+                    if (!aiText) {
+                        throw new Error('Gemini no devolvió texto en la respuesta.');
+                    }
+
+                    setMessages(prev => [...prev, { role: 'assistant', content: aiText }]);
+                } catch (err) {
+                    console.error('Gemini API:', err);
+                    setMessages(prev => [...prev, {
+                        role: 'assistant',
+                        content: `No he podido consultar Gemini. ${err?.message || 'Error desconocido.'}`
+                    }]);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="bg-white rounded-xl shadow-sm border border-indigo-100 p-6 flex flex-col h-[600px] fade-in w-full">
+                    <div className="border-b pb-4 mb-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h2 className="text-lg font-bold text-indigo-900 flex items-center gap-2">
+                                    <span>🤖</span> Asesor IA (Gemini con Búsqueda Web)
+                                </h2>
+                                <p className="text-xs text-gray-500">Analiza tus finanzas locales y puede consultar información financiera actualizada.</p>
+                            </div>
+                        </div>
+
+                        <details className="mt-3">
+                            <summary className="cursor-pointer text-xs font-bold text-indigo-700">⚙️ Configurar Gemini</summary>
+                            <div className="mt-3 p-3 bg-indigo-50 rounded-lg border border-indigo-100">
+                                <p className="text-xs text-gray-600 mb-2">
+                                    Introduce tu propia clave de Gemini. No está incluida en este HTML ni en los archivos JSON exportados.
+                                </p>
+                                <div className="flex gap-2">
+                                    <input
+                                        type={showKey ? 'text' : 'password'}
+                                        value={apiKey}
+                                        onChange={e => saveApiKey(e.target.value)}
+                                        placeholder="AIza..."
+                                        className="flex-1 p-2 border rounded-lg text-xs bg-white"
+                                        autoComplete="off"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowKey(v => !v)}
+                                        className="px-3 py-2 bg-white border rounded-lg text-xs font-bold"
+                                    >
+                                        {showKey ? 'Ocultar' : 'Ver'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => saveApiKey('')}
+                                        className="px-3 py-2 bg-red-50 text-red-600 border border-red-100 rounded-lg text-xs font-bold"
+                                    >
+                                        Borrar
+                                    </button>
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto space-y-4 pr-2 mb-4">
+                        {messages.map((m, idx) => (
+                            <div key={`${m.role}-${idx}`} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-[80%] p-4 rounded-xl text-sm leading-relaxed ${m.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none border'}`}>
+                                    <div className="whitespace-pre-wrap">{m.content}</div>
+                                </div>
+                            </div>
+                        ))}
+                        {loading && (
+                            <div className="flex justify-start">
+                                <div className="bg-gray-100 text-gray-500 p-4 rounded-xl text-sm italic animate-pulse">
+                                    Analizando y consultando fuentes de internet...
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <form onSubmit={handleSend} className="flex gap-2 border-t pt-4">
+                        <input
+                            type="text"
+                            value={input}
+                            onChange={e => setInput(e.target.value)}
+                            placeholder="Ej.: ¿Cómo va mi patrimonio?"
+                            className="flex-1 p-3 border rounded-lg outline-indigo-500 text-sm bg-gray-50"
+                        />
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-indigo-700 transition-colors shadow disabled:opacity-50"
+                        >
+                            {loading ? '...' : 'Enviar'}
+                        </button>
+                    </form>
+                </div>
+            );
+        };
+
+
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('ingresos');
+            const [notification, setNotification] = useState('');
+            
+            const [incomes, setIncomes] = useState(() => loadSafe(PUBLIC_STORAGE.incomes, INITIAL_INCOMES));
+            const [expenses, setExpenses] = useState(() => loadSafe(PUBLIC_STORAGE.expenses, INITIAL_EXPENSES));
+            const [snapshots, setSnapshots] = useState(() => loadSafe(PUBLIC_STORAGE.snapshots, INITIAL_SNAPSHOTS));
+            const [funds, setFunds] = useState(() => loadSafe(PUBLIC_STORAGE.funds, INITIAL_FUNDS));
+
+            useEffect(() => { saveSafe(PUBLIC_STORAGE.incomes, incomes); }, [incomes]);
+            useEffect(() => { saveSafe(PUBLIC_STORAGE.expenses, expenses); }, [expenses]);
+            useEffect(() => { saveSafe(PUBLIC_STORAGE.snapshots, snapshots); }, [snapshots]);
+            useEffect(() => { saveSafe(PUBLIC_STORAGE.funds, funds); }, [funds]);
+
+            const addIncome = (inc) => setIncomes(prev => [...prev, inc].sort((a,b)=>b.date.localeCompare(a.date)));
+            const updateIncome = (updatedInc) => setIncomes(prev => prev.map(i => i.id === updatedInc.id ? updatedInc : i).sort((a,b)=>b.date.localeCompare(a.date)));
+            const deleteIncome = (id) => setIncomes(prev => prev.filter(i => i.id !== id));
+            
+            const addExpense = (exp) => setExpenses(prev => [...prev, exp].sort((a,b)=>b.date.localeCompare(a.date)));
+            const updateExpense = (updatedExp) => setExpenses(prev => prev.map(e => e.id === updatedExp.id ? updatedExp : e).sort((a,b)=>b.date.localeCompare(a.date)));
+            const deleteExpense = (id) => setExpenses(prev => prev.filter(e => e.id !== id));
+            
+            const addSnapshot = (snap) => {
+                setSnapshots(prev => {
+                    const exists = prev.findIndex(s => s.date === snap.date);
+                    let newArr = [...prev];
+                    if (exists >= 0) newArr[exists] = snap; else newArr.push(snap);
+                    return newArr.sort((a,b)=>b.date.localeCompare(a.date));
+                });
+            };
+            const updateSnapshot = (updatedSnap) => {
+                setSnapshots(prev => prev.map(s => s.id === updatedSnap.id ? updatedSnap : s).sort((a,b)=>b.date.localeCompare(a.date)));
+            };
+            const deleteSnapshot = (id) => setSnapshots(prev => prev.filter(s => s.id !== id));
+
+            const handleExport = () => {
+                const tabla2EvolucionPatrimonial = snapshots
+                    .slice()
+                    .sort((a,b) => b.date.localeCompare(a.date))
+                    .map(s => ({
+                        date: s.date,
+                        ingresoTotal: s.table2?.ingresoTotal ?? s.summary?.ingresoTotal ?? null,
+                        rf: s.table2?.rf ?? s.summary?.rf ?? null,
+                        rv: s.table2?.rv ?? s.summary?.rv ?? null,
+                        cartera: s.table2?.cartera ?? s.summary?.cartera ?? null,
+                        patrimonio: s.table2?.patrimonio ?? s.summary?.patrimonio ?? null,
+                        diffCartera: s.table2?.diffCartera ?? null,
+                        diffCarteraPct: s.table2?.diffCarteraPct ?? null,
+                        diffPatrimonio: s.table2?.diffPatrimonio ?? null,
+                        diffPatrimonioPct: s.table2?.diffPatrimonioPct ?? null
+                    }));
+                const data = { incomes, expenses, snapshots, funds, tabla2EvolucionPatrimonial };
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = `CopiaSeguridad_EconomiaFamiliar.json`;
+                a.click();
+                setNotification("Copia de seguridad descargada. Guárdala en un lugar seguro.");
+            };
+
+            const handleImport = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        if (typeof data !== 'object' || data === null) {
+                            throw new Error('El archivo no contiene un objeto JSON válido.');
+                        }
+
+                        // Solo se restaura cada bloque si viene en el formato esperado (array),
+                        // así un campo ausente o corrupto no rompe el resto de la importación.
+                        let imported = 0;
+                        if (Array.isArray(data.incomes)) { setIncomes(data.incomes); imported++; }
+                        if (Array.isArray(data.expenses)) { setExpenses(data.expenses); imported++; }
+                        if (Array.isArray(data.funds)) { setFunds(data.funds); imported++; }
+
+                        // Tabla 2 puede venir como bloque explícito o dentro de snapshots.
+                        // Si existe el bloque explícito, lo usamos para garantizar que no
+                        // se pierda ningún registro histórico.
+                        let importedSnapshots = Array.isArray(data.snapshots) ? data.snapshots : [];
+                        if (Array.isArray(data.tabla2EvolucionPatrimonial)) {
+                            const byDate = new Map(importedSnapshots.map(s => [s.date, s]));
+                            data.tabla2EvolucionPatrimonial.forEach(row => {
+                                const existing = byDate.get(row.date) || {
+                                    id: `snap_${row.date}`,
+                                    date: row.date,
+                                    liquidity: row.patrimonio != null && row.cartera != null
+                                        ? row.patrimonio - row.cartera : 0,
+                                    fundsData: {},
+                                    summaryOnly: true
+                                };
+                                existing.table2 = {
+                                    ingresoTotal: row.ingresoTotal ?? null,
+                                    rf: row.rf ?? null,
+                                    rv: row.rv ?? null,
+                                    cartera: row.cartera ?? null,
+                                    patrimonio: row.patrimonio ?? null,
+                                    diffCartera: row.diffCartera ?? null,
+                                    diffCarteraPct: row.diffCarteraPct ?? null,
+                                    diffPatrimonio: row.diffPatrimonio ?? null,
+                                    diffPatrimonioPct: row.diffPatrimonioPct ?? null
+                                };
+                                existing.summary = {
+                                    ingresoTotal: row.ingresoTotal ?? null,
+                                    rf: row.rf ?? null,
+                                    rv: row.rv ?? null,
+                                    cartera: row.cartera ?? null,
+                                    patrimonio: row.patrimonio ?? null
+                                };
+                                byDate.set(row.date, existing);
+                            });
+                            importedSnapshots = Array.from(byDate.values())
+                                .sort((a,b) => b.date.localeCompare(a.date));
+                        }
+
+                        if (importedSnapshots.length) {
+                            setSnapshots(importedSnapshots);
+                            imported++;
+                        }
+
+                        if (imported === 0) {
+                            setNotification("❌ Error: El archivo no contiene datos reconocibles.");
+                        } else {
+                            setNotification(`Datos restaurados correctamente. Tabla 2: ${importedSnapshots.length} registros.`);
+                        }
+                    } catch (err) {
+                        console.error("Error al importar copia de seguridad:", err);
+                        setNotification("❌ Error: El archivo no es válido.");
+                    }
+                };
+                reader.onerror = () => setNotification("❌ Error: No se pudo leer el archivo.");
+                reader.readAsText(file);
+                e.target.value = '';
+            };
+
+            return (
+                <div className="min-h-screen pb-20 w-full overflow-x-hidden">
+                    <Notification message={notification} onClose={() => setNotification('')} />
+                    
+                    <header className="bg-white shadow-sm border-b sticky top-0 z-50">
+                        <div className="w-full px-4 sm:px-6 lg:px-8">
+                            <div className="flex flex-col sm:flex-row justify-between items-center py-4 gap-4">
+                                <h1 className="text-xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+                                    <span className="text-2xl">💼</span> Economía Familiar
+                                </h1>
+                                <div className="flex flex-wrap gap-2 items-center">
+                                    <button onClick={handleExport} className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs font-bold hover:bg-gray-200 shadow-sm border border-gray-300">⬇️ Exportar Datos</button>
+                                    <label className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded text-xs font-bold hover:bg-blue-100 cursor-pointer shadow-sm border border-blue-200">
+                                        ⬆️ Importar Datos
+                                        <input type="file" accept=".json" className="hidden" onChange={handleImport} />
+                                    </label>
+                                </div>
+                            </div>
+                            <nav className="flex space-x-6 mt-2 overflow-x-auto no-scrollbar">
+                                <button onClick={() => setActiveTab('ingresos')} className={`pb-3 px-1 transition-colors whitespace-nowrap ${activeTab === 'ingresos' ? 'tab-active' : 'tab-inactive'}`}>Ingresos</button>
+                                <button onClick={() => setActiveTab('gastos')} className={`pb-3 px-1 transition-colors whitespace-nowrap ${activeTab === 'gastos' ? 'tab-active' : 'tab-inactive'}`}>Gastos</button>
+                                <button onClick={() => setActiveTab('inversiones')} className={`pb-3 px-1 transition-colors whitespace-nowrap ${activeTab === 'inversiones' ? 'tab-active' : 'tab-inactive'}`}>Cartera de Inversión</button>
+                                <button onClick={() => setActiveTab('ia')} className={`pb-3 px-1 transition-colors whitespace-nowrap flex items-center gap-1 ${activeTab === 'ia' ? 'tab-active' : 'tab-inactive'}`}><span>🤖</span> Asesor IA</button>
+                            </nav>
+                        </div>
+                    </header>
+
+                    <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
+                        {activeTab === 'ingresos' && <IngresosTab incomes={incomes} addIncome={addIncome} updateIncome={updateIncome} deleteIncome={deleteIncome} showMessage={setNotification} />}
+                        {activeTab === 'gastos' && <GastosTab expenses={expenses} addExpense={addExpense} updateExpense={updateExpense} deleteExpense={deleteExpense} incomes={incomes} showMessage={setNotification} />}
+                        {activeTab === 'inversiones' && <InversionesTab funds={funds} setFunds={setFunds} snapshots={snapshots} addSnapshot={addSnapshot} updateSnapshot={updateSnapshot} deleteSnapshot={deleteSnapshot} showMessage={setNotification} />}
+                        {activeTab === 'ia' && <GeminisAITab incomes={incomes} expenses={expenses} snapshots={snapshots} funds={funds} />}
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
