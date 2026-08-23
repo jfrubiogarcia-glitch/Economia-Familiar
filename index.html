@@ -57,7 +57,7 @@
         const INITIAL_SNAPSHOTS = [];
 
         // This public version starts clean and uses its own storage namespace.
-        const PUBLIC_STORAGE = { incomes: 'eco_public_blank_v3_incomes', expenses: 'eco_public_blank_v3_expenses', snapshots: 'eco_public_blank_v3_snapshots', funds: 'eco_public_blank_v3_funds' };
+        const PUBLIC_STORAGE = { incomes: 'eco_public_blank_v4_incomes', expenses: 'eco_public_blank_v4_expenses', snapshots: 'eco_public_blank_v4_snapshots', funds: 'eco_public_blank_v4_funds' };
 
         const LINE_CHART_OPTIONS = { elements: { line: { tension: 0.3, borderWidth: 3 } } };
 
@@ -199,10 +199,11 @@
 
         const IngresosTab = ({ incomes, addIncome, updateIncome, deleteIncome, showMessage }) => {
             const currentYearStr = new Date().getFullYear().toString();
+            const currentMonthStr = (new Date().getMonth() + 1).toString().padStart(2, '0');
             
             const [selectedYearInput, setSelectedYearInput] = useState(currentYearStr);
-            const [selectedMonthInput, setSelectedMonthInput] = useState('01');
-            const [owner, setOwner] = useState('Titular 1');
+            const [selectedMonthInput, setSelectedMonthInput] = useState(currentMonthStr);
+            const [owner, setOwner] = useState('Juan');
             const [concept, setConcept] = useState('Nómina');
             const [customConcept, setCustomConcept] = useState('');
             const [amount, setAmount] = useState('');
@@ -222,7 +223,7 @@
             const [chartEndYear, setChartEndYear] = useState(currentYearStr);
             const [chartStartMonth, setChartStartMonth] = useState('01');
             const [chartEndMonth, setChartEndMonth] = useState('12');
-            const [selectedOwners, setSelectedOwners] = useState(['Titular 1', 'Titular 2']);
+            const [selectedOwners, setSelectedOwners] = useState(['Juan', 'Vanessa']);
             const [showTotalLine, setShowTotalLine] = useState(true);
             const [showCumulative, setShowCumulative] = useState(false);
             const [selectedConcepts, setSelectedConcepts] = useState([...CONCEPTOS_PREDEFINIDOS]);
@@ -284,8 +285,8 @@
 
             const handleVoiceTranscript = (text) => {
                 const lower = text.toLowerCase();
-                if (lower.includes('titular 2')) setOwner('Titular 2');
-                else if (lower.includes('titular 1')) setOwner('Titular 1');
+                if (lower.includes('vanessa')) setOwner('Vanessa');
+                else if (lower.includes('juan')) setOwner('Juan');
 
                 if (lower.includes('nómina') || lower.includes('nomina')) setConcept('Nómina');
                 else if (lower.includes('incentivo')) setConcept('Incentivos');
@@ -314,7 +315,7 @@
 
             const getRowPriority = (owner, concept) => {
                 const cLower = concept.toLowerCase();
-                if (owner === 'Titular 1') {
+                if (owner === 'Juan') {
                     if (cLower.includes('nómina') || cLower.includes('nomina')) return 1;
                     if (cLower.includes('incentivo')) return 2;
                     if (cLower.includes('paga extra')) return 3;
@@ -359,7 +360,7 @@
 
                 const chartDataMap = {};
                 chartIncomes.forEach(i => {
-                    if (!chartDataMap[i.date]) chartDataMap[i.date] = { 'Titular 1': 0, 'Titular 2': 0, Total: 0 };
+                    if (!chartDataMap[i.date]) chartDataMap[i.date] = { 'Juan': 0, 'Vanessa': 0, Total: 0 };
                     if (splitByConcept) {
                         const key = `${i.owner} - ${i.concept}`;
                         chartDataMap[i.date][key] = (chartDataMap[i.date][key] || 0) + i.amount;
@@ -379,22 +380,22 @@
                         datasets.push({ label: key, data: sortedChartMonths.map(m => chartDataMap[m][key] || 0), borderColor: colors[idx % colors.length], backgroundColor: colors[idx % colors.length], fill: false });
                     });
                 } else {
-                    if (selectedOwners.includes('Titular 1')) {
+                    if (selectedOwners.includes('Juan')) {
                         if (showCumulative) {
                             let running = 0;
-                            const cumData = sortedChartMonths.map(m => { running += (chartDataMap[m]['Titular 1'] || 0); return running; });
-                            datasets.push({ label: 'Titular 1 (Acumulado Anual)', data: cumData, borderColor: '#1d4ed8', borderDash: [2, 2], fill: false });
+                            const cumData = sortedChartMonths.map(m => { running += (chartDataMap[m]['Juan'] || 0); return running; });
+                            datasets.push({ label: 'Juan (Acumulado Anual)', data: cumData, borderColor: '#1d4ed8', borderDash: [2, 2], fill: false });
                         } else {
-                            datasets.push({ label: 'Titular 1', data: sortedChartMonths.map(m => chartDataMap[m]['Titular 1'] || 0), borderColor: '#3b82f6', fill: false });
+                            datasets.push({ label: 'Juan', data: sortedChartMonths.map(m => chartDataMap[m]['Juan'] || 0), borderColor: '#3b82f6', fill: false });
                         }
                     }
-                    if (selectedOwners.includes('Titular 2')) {
+                    if (selectedOwners.includes('Vanessa')) {
                         if (showCumulative) {
                             let running = 0;
-                            const cumData = sortedChartMonths.map(m => { running += (chartDataMap[m]['Titular 2'] || 0); return running; });
-                            datasets.push({ label: 'Titular 2 (Acumulado Anual)', data: cumData, borderColor: '#be185d', borderDash: [2, 2], fill: false });
+                            const cumData = sortedChartMonths.map(m => { running += (chartDataMap[m]['Vanessa'] || 0); return running; });
+                            datasets.push({ label: 'Vanessa (Acumulado Anual)', data: cumData, borderColor: '#be185d', borderDash: [2, 2], fill: false });
                         } else {
-                            datasets.push({ label: 'Titular 2', data: sortedChartMonths.map(m => chartDataMap[m]['Titular 2'] || 0), borderColor: '#ec4899', fill: false });
+                            datasets.push({ label: 'Vanessa', data: sortedChartMonths.map(m => chartDataMap[m]['Vanessa'] || 0), borderColor: '#ec4899', fill: false });
                         }
                     }
                     if (showTotalLine && selectedOwners.length > 0) {
@@ -441,7 +442,7 @@
                             <div className="md:col-span-1">
                                 <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Persona</label>
                                 <select value={owner} onChange={e=>setOwner(e.target.value)} className="w-full p-2 border rounded outline-blue-500">
-                                    <option value="Titular 1">Titular 1</option><option value="Titular 2">Titular 2</option>
+                                    <option value="Juan">Juan</option><option value="Vanessa">Vanessa</option>
                                 </select>
                             </div>
                             <div className="md:col-span-1">
@@ -494,7 +495,7 @@
                                         sortedTableRows.map((row) => (
                                             <tr key={`${row.owner}-${row.concept}`} className="hover:bg-gray-50">
                                                 <td className="px-4 py-2 text-left font-medium">
-                                                    <span className={row.owner === 'Titular 1' ? 'text-blue-700' : 'text-pink-600'}>{row.owner}</span>
+                                                    <span className={row.owner === 'Juan' ? 'text-blue-700' : 'text-pink-600'}>{row.owner}</span>
                                                     <span className="text-gray-400 mx-1">-</span>
                                                     <span className="text-gray-600">{row.concept}</span>
                                                 </td>
@@ -541,8 +542,8 @@
                                 <button onClick={()=>{setChartStartYear('2020'); setChartEndYear(currentYearStr); setChartStartMonth('01'); setChartEndMonth('12');}} className="text-xs font-bold text-blue-600 hover:underline mb-1">Ver todo el histórico</button>
                                 
                                 <div className="sm:ml-auto flex flex-wrap items-center gap-4 bg-white p-2 border rounded shadow-sm w-full sm:w-auto">
-                                    <label className="flex items-center gap-1 text-sm font-medium cursor-pointer"><input type="checkbox" checked={selectedOwners.includes('Titular 1')} onChange={()=>handleToggleOwner('Titular 1')} className="w-4 h-4 text-blue-600" /> Titular 1</label>
-                                    <label className="flex items-center gap-1 text-sm font-medium cursor-pointer"><input type="checkbox" checked={selectedOwners.includes('Titular 2')} onChange={()=>handleToggleOwner('Titular 2')} className="w-4 h-4 text-pink-600" /> Titular 2</label>
+                                    <label className="flex items-center gap-1 text-sm font-medium cursor-pointer"><input type="checkbox" checked={selectedOwners.includes('Juan')} onChange={()=>handleToggleOwner('Juan')} className="w-4 h-4 text-blue-600" /> Juan</label>
+                                    <label className="flex items-center gap-1 text-sm font-medium cursor-pointer"><input type="checkbox" checked={selectedOwners.includes('Vanessa')} onChange={()=>handleToggleOwner('Vanessa')} className="w-4 h-4 text-pink-600" /> Vanessa</label>
                                     <label className="flex items-center gap-1 text-sm font-bold text-green-700 sm:border-l sm:pl-2 cursor-pointer"><input type="checkbox" checked={showTotalLine} onChange={()=>setShowTotalLine(!showTotalLine)} className="w-4 h-4 text-green-600" /> Suma Total</label>
                                 </div>
                             </div>
@@ -573,7 +574,7 @@
                             <summary className="font-bold text-sm text-blue-600 cursor-pointer outline-none">Historial completo para editar o borrar errores</summary>
                             <div className="mt-4 max-h-40 overflow-y-auto pr-2">
                                 <ul className="text-sm divide-y">
-                                    {incomes.slice().reverse().map(i => (
+                                    {incomes.slice().sort((a, b) => b.date.localeCompare(a.date)).map(i => (
                                         <li key={i.id} className="py-2 flex justify-between items-center hover:bg-gray-50 px-2 rounded">
                                             <span><span className="font-bold text-gray-600">{i.date}</span> - {i.owner} - {i.concept}</span>
                                             <div className="flex items-center gap-3">
@@ -593,6 +594,7 @@
 
         const GastosTab = ({ expenses, addExpense, updateExpense, deleteExpense, incomes, showMessage }) => {
             const currentYearStr = new Date().getFullYear().toString();
+            const currentMonthStr = (new Date().getMonth() + 1).toString().padStart(2, '0');
             const PREDEFINED_EXPENSES = [
                 "Ahorro", "Seguro casa", "Contribución", "Seguro coche", "Sello coche", "Gasolina", 
                 "Deporte", "Comunidad", "Luz", "Agua", "Gas", "Adeslas", "Teléfono", "Movistar Plus", 
@@ -601,7 +603,7 @@
             ];
             
             const [selectedYearInput, setSelectedYearInput] = useState(currentYearStr);
-            const [selectedMonthInput, setSelectedMonthInput] = useState('01');
+            const [selectedMonthInput, setSelectedMonthInput] = useState(currentMonthStr);
             const [concept, setConcept] = useState(PREDEFINED_EXPENSES[0]);
             const [customConcept, setCustomConcept] = useState('');
             const [amount, setAmount] = useState('');
@@ -752,9 +754,14 @@
                 });
                 const chartDataMap = {};
                 chartExpenses.forEach(e => {
-                    if (!chartDataMap[e.date]) chartDataMap[e.date] = { Total: 0 };
-                    if (splitByConcept) chartDataMap[e.date][e.concept] = (chartDataMap[e.date][e.concept] || 0) + e.amount;
-                    else chartDataMap[e.date].Total = (chartDataMap[e.date].Total || 0) + e.amount;
+                    if (!chartDataMap[e.date]) chartDataMap[e.date] = { Total: 0, Ahorro: 0 };
+                    if (splitByConcept) {
+                        chartDataMap[e.date][e.concept] = (chartDataMap[e.date][e.concept] || 0) + e.amount;
+                    } else if (e.concept === 'Ahorro') {
+                        chartDataMap[e.date].Ahorro = (chartDataMap[e.date].Ahorro || 0) + e.amount;
+                    } else {
+                        chartDataMap[e.date].Total = (chartDataMap[e.date].Total || 0) + e.amount;
+                    }
                 });
 
                 const sortedChartMonths = Object.keys(chartDataMap).sort();
@@ -765,7 +772,8 @@
                     const uniqueKeys = [...new Set(chartExpenses.map(e => e.concept))].sort();
                     uniqueKeys.forEach((key, idx) => { datasets.push({ label: key, data: sortedChartMonths.map(m => chartDataMap[m][key] || 0), borderColor: colors[idx % colors.length], fill: false }); });
                 } else {
-                    datasets.push({ label: 'Suma Gastos/Ahorro', data: sortedChartMonths.map(m => chartDataMap[m].Total || 0), borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.2)', fill: true, tension: 0.3 });
+                    datasets.push({ label: 'Suma Gastos (sin Ahorro)', data: sortedChartMonths.map(m => chartDataMap[m].Total || 0), borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.2)', fill: true, tension: 0.3 });
+                    datasets.push({ label: 'Ahorro', data: sortedChartMonths.map(m => chartDataMap[m].Ahorro || 0), borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.2)', fill: true, tension: 0.3 });
                 }
 
                 return { labels: sortedChartMonths, datasets };
@@ -963,7 +971,7 @@
                             <summary className="font-bold text-sm text-red-600 cursor-pointer outline-none">Historial completo para editar o borrar errores</summary>
                             <div className="mt-4 max-h-40 overflow-y-auto pr-2">
                                 <ul className="text-sm divide-y">
-                                    {expenses.slice().reverse().map(e => (
+                                    {expenses.slice().sort((a, b) => b.date.localeCompare(a.date)).map(e => (
                                         <li key={e.id} className="py-2 flex justify-between items-center hover:bg-gray-50 px-2 rounded">
                                             <span><span className="font-bold text-gray-600">{e.date}</span> - {e.concept}</span>
                                             <div className="flex items-center gap-3">
@@ -1016,12 +1024,23 @@
             }, [latestSnap, funds, editingSnapId]);
 
             const handleFundDataChange = (id, field, val) => {
-                setSnapFundsData(prev => ({ ...prev, [id]: { ...prev[id], [field]: parseFloat(val) || 0 } }));
+                // Guardamos el texto tal cual se escribe (sin convertir a número en cada pulsación).
+                // Convertir a número en cada tecla borraba el punto/coma decimal mientras se escribía,
+                // sobre todo en el teclado numérico del móvil.
+                const cleanVal = val.replace(',', '.');
+                setSnapFundsData(prev => ({ ...prev, [id]: { ...prev[id], [field]: cleanVal } }));
             };
 
             const handleSaveSnapshot = (e) => {
                 e.preventDefault();
-                const newSnap = { id: editingSnapId || generateId(), date: snapDate, liquidity: parseFloat(snapLiquidity) || 0, fundsData: { ...snapFundsData } };
+                const parsedFundsData = {};
+                Object.keys(snapFundsData).forEach(id => {
+                    parsedFundsData[id] = {
+                        ingreso: parseFloat(snapFundsData[id]?.ingreso) || 0,
+                        value: parseFloat(snapFundsData[id]?.value) || 0
+                    };
+                });
+                const newSnap = { id: editingSnapId || generateId(), date: snapDate, liquidity: parseFloat(snapLiquidity) || 0, fundsData: parsedFundsData };
                 if (editingSnapId) {
                     updateSnapshot(newSnap);
                     showMessage("Fotografía actualizada correctamente");
@@ -1715,22 +1734,52 @@ Responde en español salvo que el usuario pida otro idioma.`;
             };
             const deleteSnapshot = (id) => setSnapshots(prev => prev.filter(s => s.id !== id));
 
+            // Calcula los totales de una fotografía. Si ya trae un resumen guardado (table2/summary)
+            // se usa ese; si no (p.ej. una fotografía recién añadida en el formulario), se calcula
+            // al vuelo a partir del desglose por fondo, igual que hace la Tabla 2 en pantalla.
+            const getSnapTotals = (s) => {
+                if (s.table2) {
+                    return {
+                        ing: s.table2.ingresoTotal ?? null, rf: s.table2.rf ?? null, rv: s.table2.rv ?? null,
+                        cartera: s.table2.cartera ?? null, patrimonio: s.table2.patrimonio ?? null
+                    };
+                }
+                if (s.summary) {
+                    return {
+                        ing: s.summary.ingresoTotal ?? s.summary.ing ?? null, rf: s.summary.rf ?? null, rv: s.summary.rv ?? null,
+                        cartera: s.summary.cartera ?? null, patrimonio: s.summary.patrimonio ?? null
+                    };
+                }
+                let ing = 0, rf = 0, rv = 0;
+                funds.forEach(f => {
+                    const sv = s.fundsData?.[f.id]?.ingreso || 0;
+                    const vl = s.fundsData?.[f.id]?.value || 0;
+                    ing += sv;
+                    if (f.type.includes('Fija')) rf += vl; else rv += vl;
+                });
+                return { ing, rf, rv, cartera: rf + rv, patrimonio: rf + rv + (s.liquidity || 0) };
+            };
+
             const handleExport = () => {
-                const tabla2EvolucionPatrimonial = snapshots
-                    .slice()
-                    .sort((a,b) => b.date.localeCompare(a.date))
-                    .map(s => ({
+                const sortedSnapsDesc = snapshots.slice().sort((a,b) => b.date.localeCompare(a.date));
+                const tabla2EvolucionPatrimonial = sortedSnapsDesc.map((s, idx) => {
+                    const curr = getSnapTotals(s);
+                    const nextSnap = sortedSnapsDesc[idx + 1];
+                    const prev = nextSnap ? getSnapTotals(nextSnap) : { cartera: null, patrimonio: null };
+                    const diffCartera = (curr.cartera != null && prev.cartera != null) ? curr.cartera - prev.cartera : (s.table2?.diffCartera ?? null);
+                    const diffCarteraPct = (diffCartera != null && prev.cartera > 0) ? (diffCartera / prev.cartera) * 100 : (s.table2?.diffCarteraPct ?? null);
+                    const diffPatrimonio = (curr.patrimonio != null && prev.patrimonio != null) ? curr.patrimonio - prev.patrimonio : (s.table2?.diffPatrimonio ?? null);
+                    const diffPatrimonioPct = (diffPatrimonio != null && prev.patrimonio > 0) ? (diffPatrimonio / prev.patrimonio) * 100 : (s.table2?.diffPatrimonioPct ?? null);
+                    return {
                         date: s.date,
-                        ingresoTotal: s.table2?.ingresoTotal ?? s.summary?.ingresoTotal ?? null,
-                        rf: s.table2?.rf ?? s.summary?.rf ?? null,
-                        rv: s.table2?.rv ?? s.summary?.rv ?? null,
-                        cartera: s.table2?.cartera ?? s.summary?.cartera ?? null,
-                        patrimonio: s.table2?.patrimonio ?? s.summary?.patrimonio ?? null,
-                        diffCartera: s.table2?.diffCartera ?? null,
-                        diffCarteraPct: s.table2?.diffCarteraPct ?? null,
-                        diffPatrimonio: s.table2?.diffPatrimonio ?? null,
-                        diffPatrimonioPct: s.table2?.diffPatrimonioPct ?? null
-                    }));
+                        ingresoTotal: curr.ing,
+                        rf: curr.rf,
+                        rv: curr.rv,
+                        cartera: curr.cartera,
+                        patrimonio: curr.patrimonio,
+                        diffCartera, diffCarteraPct, diffPatrimonio, diffPatrimonioPct
+                    };
+                });
                 const data = { incomes, expenses, snapshots, funds, tabla2EvolucionPatrimonial };
                 const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
@@ -1773,24 +1822,32 @@ Responde en español salvo que el usuario pida otro idioma.`;
                                     fundsData: {},
                                     summaryOnly: true
                                 };
-                                existing.table2 = {
-                                    ingresoTotal: row.ingresoTotal ?? null,
-                                    rf: row.rf ?? null,
-                                    rv: row.rv ?? null,
-                                    cartera: row.cartera ?? null,
-                                    patrimonio: row.patrimonio ?? null,
-                                    diffCartera: row.diffCartera ?? null,
-                                    diffCarteraPct: row.diffCarteraPct ?? null,
-                                    diffPatrimonio: row.diffPatrimonio ?? null,
-                                    diffPatrimonioPct: row.diffPatrimonioPct ?? null
-                                };
-                                existing.summary = {
-                                    ingresoTotal: row.ingresoTotal ?? null,
-                                    rf: row.rf ?? null,
-                                    rv: row.rv ?? null,
-                                    cartera: row.cartera ?? null,
-                                    patrimonio: row.patrimonio ?? null
-                                };
+                                const hasOwnFundsData = existing.fundsData && Object.values(existing.fundsData).some(fd => (fd?.ingreso || fd?.value));
+                                const rowHasRealData = row.ingresoTotal != null || row.rf != null || row.rv != null || row.cartera != null || row.patrimonio != null;
+                                // Si la fotografía ya trae su propio desglose por fondo (fundsData) y esta fila
+                                // de Tabla 2 no aporta datos (todo null, típico de una actualización recién
+                                // guardada y aún no recalculada), no la pisamos: dejamos que la app calcule
+                                // los totales a partir de fundsData, que es la fuente más fiable.
+                                if (rowHasRealData || !hasOwnFundsData) {
+                                    existing.table2 = {
+                                        ingresoTotal: row.ingresoTotal ?? null,
+                                        rf: row.rf ?? null,
+                                        rv: row.rv ?? null,
+                                        cartera: row.cartera ?? null,
+                                        patrimonio: row.patrimonio ?? null,
+                                        diffCartera: row.diffCartera ?? null,
+                                        diffCarteraPct: row.diffCarteraPct ?? null,
+                                        diffPatrimonio: row.diffPatrimonio ?? null,
+                                        diffPatrimonioPct: row.diffPatrimonioPct ?? null
+                                    };
+                                    existing.summary = {
+                                        ingresoTotal: row.ingresoTotal ?? null,
+                                        rf: row.rf ?? null,
+                                        rv: row.rv ?? null,
+                                        cartera: row.cartera ?? null,
+                                        patrimonio: row.patrimonio ?? null
+                                    };
+                                }
                                 byDate.set(row.date, existing);
                             });
                             importedSnapshots = Array.from(byDate.values())
