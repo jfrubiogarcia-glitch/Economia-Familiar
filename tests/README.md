@@ -50,6 +50,12 @@ cambios concurrentes durante la confirmación y descarga de la copia previa.
 
 ## Comprobación manual pendiente en un navegador seguro
 
+La [guía mínima con archivos preparados](VALIDACION-MANUAL.md) explica cómo
+usar un perfil Invitado y dos copias locales sin tocar datos reales. Incluye
+la alternancia entre versiones, el historial con fondos eliminados y la
+presentación móvil mediante emulación. Los archivos están en `fixtures/`.
+Esa guía todavía no se ha ejecutado en un navegador real por Codex.
+
 Usa un perfil nuevo, sin datos personales, y sirve el repositorio con:
 
 ```sh

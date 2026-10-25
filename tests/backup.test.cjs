@@ -356,3 +356,89 @@ test('a complete valid backup can recover unreadable storage without deleting or
     assert.deepEqual(Backup.loadDataset(storage), fixture());
     assert.equal(storage.getItem(Backup.LEGACY_KEYS.incomes), '{broken fictitious JSON');
 });
+
+// These checks model the old four-key storage contract, not a running old UI.
+// The actual old import/export functions are also inspected separately before
+// publishing the manual validation report; browser validation stays pending.
+const manualFixture = require('./fixtures/01-valida.json');
+const legacyRead = storage => Object.fromEntries(Backup.BLOCKS.map(k => [k, JSON.parse(storage.getItem(Backup.LEGACY_KEYS[k]) || '[]')]));
+
+test('manual valid fixture has the documented balances and no synthesized historical changes', () => {
+    const data = Backup.prepareRestore(manualFixture, Backup.emptyDataset()).data;
+    assert.equal(data.incomes.reduce((sum, r) => sum + r.amount, 0), 100);
+    assert.equal(data.expenses.reduce((sum, r) => sum + r.amount, 0), 20);
+    assert.equal(data.snapshots[0].fundsData['fondo-prueba'].value, 120);
+    assert.equal(data.snapshots[0].liquidity, 50);
+    assert.deepEqual(data, manualFixture);
+});
+
+test('new saves do not change what the old four-key reader sees', () => {
+    const original = clone(manualFixture), storage = legacyStorage(original);
+    const next = clone(original);
+    next.incomes.push({ ...next.incomes[0], id: 'nueva-7', amount: 7 });
+    Backup.saveDataset(storage, next);
+    assert.equal(Backup.loadDataset(storage).incomes.reduce((s, r) => s + r.amount, 0), 107);
+    assert.deepEqual(legacyRead(storage), original);
+});
+
+test('legacy edits do not replace newer consolidated data without explicit JSON restore', () => {
+    const original = clone(manualFixture), storage = legacyStorage(original);
+    const next = clone(original);
+    next.incomes.push({ ...next.incomes[0], id: 'nueva-7', amount: 7 });
+    Backup.saveDataset(storage, next);
+    const oldEdit = clone(original);
+    oldEdit.incomes.push({ ...oldEdit.incomes[0], id: 'anterior-9', amount: 9 });
+    storage.setItem(Backup.LEGACY_KEYS.incomes, JSON.stringify(oldEdit.incomes));
+    assert.equal(legacyRead(storage).incomes.reduce((s, r) => s + r.amount, 0), 109);
+    assert.equal(Backup.loadDataset(storage).incomes.reduce((s, r) => s + r.amount, 0), 107);
+    Backup.restore(storage, JSON.stringify(oldEdit), next);
+    assert.equal(Backup.loadDataset(storage).incomes.reduce((s, r) => s + r.amount, 0), 109);
+});
+
+test('valid new JSON remains readable through the old four-key storage contract when explicitly transferred', () => {
+    const original = clone(manualFixture), storage = legacyStorage(original), ui = appHarness(storage);
+    const income = { ...original.incomes[0], id: 'nueva-7', amount: 7 };
+    ui.render().addIncome(income);
+    const updated = Backup.loadDataset(storage);
+    // The old version only changes its own four keys when an export is imported.
+    Backup.BLOCKS.forEach(k => storage.setItem(Backup.LEGACY_KEYS[k], JSON.stringify(updated[k])));
+    assert.deepEqual(legacyRead(storage), updated);
+});
+
+test('manual empty and photographs-only fixtures clear exactly the intended blocks', () => {
+    const empty = require('./fixtures/02-vacia.json');
+    const partial = require('./fixtures/06-fotografias-vacias.json');
+    assert.deepEqual(Backup.prepareRestore(empty, manualFixture).data, Backup.emptyDataset());
+    assert.deepEqual(Backup.prepareRestore(partial, manualFixture).data, { ...manualFixture, snapshots: [] });
+});
+
+for (const name of ['03-invalida-parcial.json', '04-importe-invalido.json', '05-fondo-eliminado.json']) {
+    test(`manual fixture ${name} is rejected without changing the starting 100-euro income`, () => {
+        const input = require('./fixtures/' + name), storage = legacyStorage(manualFixture);
+        assert.throws(() => Backup.restore(storage, input, manualFixture));
+        assert.deepEqual(Backup.loadDataset(storage), manualFixture);
+        assert.deepEqual(storage.writes, []);
+    });
+}
+
+test('an existing orphan snapshot is preserved on export; import of that export is rejected without data changes', async () => {
+    const original = clone(manualFixture);
+    original.funds = [];
+    const storage = legacyStorage(original), ui = appHarness(storage);
+    assert.equal(ui.render().downloadCurrentBackup(), true);
+    const exported = JSON.parse(await ui.downloads[0].text());
+    assert.deepEqual(exported.snapshots, original.snapshots);
+    assert.equal(exported.snapshots[0].fundsData['fondo-prueba'].value, 120);
+    assert.equal(exported.tabla2EvolucionPatrimonial[0].cartera, 0);
+    assert.equal(exported.tabla2EvolucionPatrimonial[0].patrimonio, 50);
+    assert.match(ui.render().storageError, /necesitará revisión/);
+    assert.throws(() => Backup.restore(storage, exported, original), /referencia/);
+    assert.deepEqual(Backup.loadDataset(storage), original);
+    assert.deepEqual(storage.writes, []);
+});
+
+test('a newly created fund with the same name cannot silently replace a deleted historical id', () => {
+    const data = clone(manualFixture);
+    data.funds[0].id = 'identificador-nuevo';
+    assert.throws(() => Backup.prepareRestore(data, Backup.emptyDataset()), /referencia/);
+});

@@ -5,9 +5,9 @@ Si existe un conflicto entre instrucciones aplicables, indícalo antes de realiz
 
 ## Contexto del proyecto
 
-- La aplicación actual está contenida en `index.html`, con React, estilos, cálculos financieros y almacenamiento en el navegador.
+- La interfaz y los cálculos financieros están en `index.html`; la validación y persistencia de las copias JSON están en `backup.js`.
 - Utiliza localStorage e importación/exportación JSON. No dispone de backend, autenticación ni sincronización remota.
-- Las bibliotecas se cargan desde CDN. Actualmente no hay manifiesto de dependencias, proceso de compilación ni suite de pruebas.
+- Las bibliotecas se cargan desde CDN. Actualmente no hay manifiesto de dependencias ni proceso de compilación. Las pruebas de restauración utilizan Node.js sin dependencias adicionales.
 - Comprueba estas características antes de apoyarte en ellas: actualiza estas instrucciones cuando cambie la arquitectura.
 
 ## Prioridades de trabajo
@@ -57,7 +57,7 @@ Evita refactorizaciones amplias y nuevas dependencias cuando una solución peque
 - Si cambia la restauración, comprueba al menos: copia válida, copia vacía, campos ausentes, datos inválidos, referencias rotas y ausencia de cambios parciales tras un fallo.
 - Si cambia el modelo financiero, comprueba también la conservación del historial y la coherencia de totales y exportaciones.
 - Cuando afecte a la interfaz o al almacenamiento, verifica el flujo en un navegador y la persistencia tras recargar.
-- Actualmente no hay un comando de pruebas definido: no inventes uno ni presentes los scripts temporales de auditoría como una suite incorporada al proyecto.
+- Ejecuta `node --test tests/backup.test.cjs` desde la raíz para comprobar la validación, restauración y persistencia JSON. Las instrucciones están en `tests/README.md`. Estas pruebas utilizan almacenamiento y APIs de navegador simulados; no sustituyen la validación en un navegador real.
 - Si un bloqueo del entorno impide una comprobación, informa de ello y distingue lo ejecutado de lo pendiente. No declares validado el comportamiento que no hayas podido comprobar.
 
 Para servir la aplicación actual desde la raíz:

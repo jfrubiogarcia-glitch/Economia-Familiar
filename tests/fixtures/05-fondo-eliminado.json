@@ -1,0 +1,6 @@
+{
+  "incomes": [{ "id": "ingreso-huerfano", "date": "2026-10", "owner": "Juan", "concept": "NO DEBE IMPORTARSE", "amount": 999 }],
+  "expenses": [{ "id": "gasto-prueba", "date": "2026-10", "concept": "GASTO FICTICIO", "amount": 20 }],
+  "funds": [],
+  "snapshots": [{ "id": "foto-prueba", "date": "2026-10-01", "liquidity": 50, "fundsData": { "fondo-prueba": { "ingreso": 100, "value": 120 } } }]
+}
