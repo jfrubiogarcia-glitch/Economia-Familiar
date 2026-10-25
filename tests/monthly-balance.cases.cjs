@@ -276,7 +276,7 @@ function formHarness(initial, saveFails = false) {
         useRef(value) { const i = cursor++; if (!(i in slots)) slots[i] = { current: value }; return slots[i]; },
         useEffect(fn, deps) { const i = cursor++, previous = slots[i]; if (!previous || deps.some((value, j) => value !== previous[j])) { slots[i] = deps; effects.push(fn); } }
     };
-    const expose = 'return {handleSave,changeMonth,changeAction,setFundText,setLiquidityText,setEntries,setReviewed,fundText,liquidityText,entries,reviewed,result,annual,savedNeedsReview,dirty};';
+    const expose = 'return {handleSave,changeMonth,changeAction,setFundText,setLiquidityText,setEntries,setReviewed,fundText,liquidityText,entries,reviewed,result,annual,savedNeedsReview,dirty,setView,setReportYear,setEndMonth,view,comparison,chartData};';
     const render = vm.runInNewContext(html.slice(parseStart, parseEnd) + '(function({data,saveBalance,showMessage}){' + html.slice(start, end) + expose + '})', context);
     return { messages, writes, setData(value) { data = clone(value); }, getData: () => data,
         render() { cursor = 0; return render({ data, showMessage: text => messages.push(text), saveBalance(value, reviewed) {
@@ -327,4 +327,113 @@ test('form retains unsaved numbers and never announces success if persistence fa
     ui.render().handleSave({ preventDefault() {} });
     assert.equal(ui.render().fundText, '-200,00'); assert.equal(ui.render().liquidityText, '0,00');
     assert.equal(ui.writes.length, 0); assert.equal(ui.messages.length, 0);
+});
+
+function reportingFixture() {
+    const data = { ...B.emptyDataset(), monthlyBalances: [] };
+    function add(month, income, savings, reviewed = true, save = true) {
+        data.incomes.push({ id: `income-${month}`, date: month, owner: 'Persona ficticia', concept: 'Ingreso ficticio', amount: income });
+        data.expenses.push({ id: `expense-${month}`, date: month, concept: 'Gasto ficticio', amount: 1000 });
+        if (save) data.monthlyBalances.push(M.prepareRecord(data, input({ month, fundSavings: savings, liquiditySavings: 0 }), reviewed));
+    }
+    for (const year of [2024, 2025]) for (let i = 1; i <= 12; i++) add(`${year}-${String(i).padStart(2, '0')}`, 2000, year === 2024 ? 200 : 400);
+    add('2026-01', 3000, 500); add('2026-02', 1000, -100, false); add('2026-03', 1500, 0, false, false);
+    return data;
+}
+
+test('YTD includes only reviewed months through the selected final month with explicit coverage', () => {
+    const data = reportingFixture(), before = clone(data), summary = M.periodSummary(data, 2026, 4);
+    assert.equal(summary.count, 1); assert.equal(summary.pending, 2); assert.equal(summary.missing, 1);
+    assert.equal(summary.expected, 4); assert.equal(summary.complete, false);
+    assert.equal(summary.totals.income, 3000); assert.equal(summary.totals.totalExpense, 2500);
+    assert.equal(summary.averageExpense, 2500); assert.equal(summary.savingsRate, 16.67);
+    assert.deepEqual(data, before);
+    assert.equal(M.periodSummary(data, 2026, 1).complete, true);
+});
+
+test('saving percentage uses the ratio of totals, not the mean of monthly percentages', () => {
+    const data = reportingFixture();
+    const feb = data.monthlyBalances.find(row => row.month === '2026-02');
+    Object.assign(feb, M.prepareRecord(data, feb, true));
+    const summary = M.periodSummary(data, 2026, 2);
+    assert.equal(summary.savingsRate, 10); // (500 - 100) / (3000 + 1000)
+    assert.equal(summary.count, 2); assert(summary.complete);
+    assert.equal(summary.totals.totalSavings, 400); assert.equal(summary.totals.totalExpense, 3600);
+    assert.equal(summary.averageExpense, 1800);
+});
+
+test('percentages preserve negatives, distinguish real zero and do not divide by nonpositive or missing income', () => {
+    assert.equal(M.savingsRate(-200, 1000), -20); assert.equal(M.savingsRate(0, 1000), 0);
+    for (const income of [null, 0, -100]) assert.equal(M.savingsRate(200, income), null);
+    assert.equal(M.savingsRate(null, 1000), null);
+    assert.equal(M.savingsRate(90000000000000, 0.01), null);
+});
+
+test('empty and source-only periods never invent savings zeros or complete totals', () => {
+    const data = reportingFixture(), empty = M.periodSummary(data, 2023, 6);
+    assert.equal(empty.count, 0); assert.equal(empty.pending, 0); assert.equal(empty.missing, 6);
+    assert.equal(empty.complete, false); assert.equal(empty.savingsRate, null); assert.equal(empty.averageExpense, null);
+    assert(Object.values(empty.totals).every(value => value === null));
+    assert.equal(M.monthStatus(M.calculate(data, '2026-03')), 'pending');
+    assert.equal(M.calculate(data, '2026-03').totalSavings, null);
+    assert.equal(M.monthStatus(M.calculate(data, '2026-04')), 'missing');
+});
+
+test('complete annual comparison requires both years and reports selected minus previous differences', () => {
+    const rows = M.compareYears(reportingFixture(), 2025);
+    assert.deepEqual(rows.map(row => row.year), ['2025', '2024']);
+    assert.equal(rows[0].comparable, false); assert.equal(rows[0].expenseDifference, null);
+    assert.equal(rows[1].comparable, true); assert.equal(rows[1].count, 12);
+    assert.equal(rows[1].expenseDifference, -2400); assert.equal(rows[1].savingsDifference, 2400);
+    assert.equal(rows[0].savingsRate, 20); assert.equal(rows[1].savingsRate, 10);
+});
+
+test('incomplete or invalidated years suppress comparisons instead of extrapolating or matching different months', () => {
+    const data = reportingFixture();
+    assert(M.compareYears(data, 2026).every(row => !row.comparable && row.expenseDifference === null));
+    data.incomes.find(row => row.date === '2024-01').amount += 1;
+    const prior = M.compareYears(data, 2025).find(row => row.year === '2024');
+    assert.equal(prior.count, 11); assert.equal(prior.pending, 1); assert.equal(prior.complete, false);
+    assert.equal(prior.comparable, false); assert.equal(prior.savingsDifference, null);
+});
+
+test('report selectors reject invalid final months and years', () => {
+    for (const end of [0, 13, 1.5, '2', null]) assert.throws(() => M.periodSummary(fixture(), 2026, end));
+    for (const year of ['26', 'invalid', 2026.5]) assert.throws(() => M.periodSummary(fixture(), year));
+});
+
+test('the single manual reporting fixture restores without changing its monthly records', () => {
+    const source = require('./fixtures/15-balance-vistas.json');
+    const restored = B.prepareRestore(source, B.emptyDataset()).data;
+    assert.deepEqual(restored, reportingFixtureWithNotes());
+    function reportingFixtureWithNotes() {
+        const data = reportingFixture();
+        data.monthlyBalances.forEach(row => { row.note = 'Ejemplo ficticio para validar vistas'; });
+        return data;
+    }
+    assert.equal(M.periodSummary(restored, 2026, 4).count, 1);
+    assert.equal(M.compareYears(restored, 2025)[1].expenseDifference, -2400);
+});
+
+test('changing report views and years keeps monthly drafts without creating or saving records', () => {
+    const ui = formHarness(reportingFixture()); openMonth(ui);
+    ui.render().setFundText('-200,00'); ui.render().setLiquidityText('50,00');
+    ui.render().setView('ytd'); ui.render().setReportYear('2026'); ui.render().setEndMonth(4);
+    assert.equal(ui.render().annual.expected, 4); assert.equal(ui.render().annual.count, 1);
+    ui.render().setView('annual'); ui.render().setReportYear('2025');
+    assert.equal(ui.render().annual.count, 12); assert.equal(ui.render().comparison[1].comparable, true);
+    ui.render().setView('monthly');
+    assert.equal(ui.render().fundText, '-200,00'); assert.equal(ui.render().liquidityText, '50,00');
+    assert.equal(ui.writes.length, 0);
+});
+
+test('report graphs leave missing months null and distinguish reviewed and pending savings and spending', () => {
+    const ui = formHarness(reportingFixture()); openMonth(ui);
+    ui.render().setView('ytd'); ui.render().setReportYear('2026'); ui.render().setEndMonth(4);
+    const chart = ui.render().chartData;
+    assert.equal(chart.labels.length, 4);
+    assert.deepEqual(Array.from(chart.datasets[0].data), [2500, null, null, null]);
+    assert.deepEqual(Array.from(chart.datasets[1].data), [null, 1100, null, null]);
+    assert.deepEqual(Array.from(chart.datasets[3].data), [500, null, null, null]);
+    assert.deepEqual(Array.from(chart.datasets[4].data), [null, -100, null, null]);
 });

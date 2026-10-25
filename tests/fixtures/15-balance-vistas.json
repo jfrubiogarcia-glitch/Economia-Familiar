@@ -1,0 +1,570 @@
+{
+  "incomes": [
+    {
+      "id": "income-2024-01",
+      "date": "2024-01",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 2000
+    },
+    {
+      "id": "income-2024-02",
+      "date": "2024-02",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 2000
+    },
+    {
+      "id": "income-2024-03",
+      "date": "2024-03",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 2000
+    },
+    {
+      "id": "income-2024-04",
+      "date": "2024-04",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 2000
+    },
+    {
+      "id": "income-2024-05",
+      "date": "2024-05",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 2000
+    },
+    {
+      "id": "income-2024-06",
+      "date": "2024-06",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 2000
+    },
+    {
+      "id": "income-2024-07",
+      "date": "2024-07",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 2000
+    },
+    {
+      "id": "income-2024-08",
+      "date": "2024-08",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 2000
+    },
+    {
+      "id": "income-2024-09",
+      "date": "2024-09",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 2000
+    },
+    {
+      "id": "income-2024-10",
+      "date": "2024-10",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 2000
+    },
+    {
+      "id": "income-2024-11",
+      "date": "2024-11",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 2000
+    },
+    {
+      "id": "income-2024-12",
+      "date": "2024-12",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 2000
+    },
+    {
+      "id": "income-2025-01",
+      "date": "2025-01",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 2000
+    },
+    {
+      "id": "income-2025-02",
+      "date": "2025-02",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 2000
+    },
+    {
+      "id": "income-2025-03",
+      "date": "2025-03",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 2000
+    },
+    {
+      "id": "income-2025-04",
+      "date": "2025-04",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 2000
+    },
+    {
+      "id": "income-2025-05",
+      "date": "2025-05",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 2000
+    },
+    {
+      "id": "income-2025-06",
+      "date": "2025-06",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 2000
+    },
+    {
+      "id": "income-2025-07",
+      "date": "2025-07",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 2000
+    },
+    {
+      "id": "income-2025-08",
+      "date": "2025-08",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 2000
+    },
+    {
+      "id": "income-2025-09",
+      "date": "2025-09",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 2000
+    },
+    {
+      "id": "income-2025-10",
+      "date": "2025-10",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 2000
+    },
+    {
+      "id": "income-2025-11",
+      "date": "2025-11",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 2000
+    },
+    {
+      "id": "income-2025-12",
+      "date": "2025-12",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 2000
+    },
+    {
+      "id": "income-2026-01",
+      "date": "2026-01",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 3000
+    },
+    {
+      "id": "income-2026-02",
+      "date": "2026-02",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "income-2026-03",
+      "date": "2026-03",
+      "owner": "Persona ficticia",
+      "concept": "Ingreso ficticio",
+      "amount": 1500
+    }
+  ],
+  "expenses": [
+    {
+      "id": "expense-2024-01",
+      "date": "2024-01",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2024-02",
+      "date": "2024-02",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2024-03",
+      "date": "2024-03",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2024-04",
+      "date": "2024-04",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2024-05",
+      "date": "2024-05",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2024-06",
+      "date": "2024-06",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2024-07",
+      "date": "2024-07",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2024-08",
+      "date": "2024-08",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2024-09",
+      "date": "2024-09",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2024-10",
+      "date": "2024-10",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2024-11",
+      "date": "2024-11",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2024-12",
+      "date": "2024-12",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2025-01",
+      "date": "2025-01",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2025-02",
+      "date": "2025-02",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2025-03",
+      "date": "2025-03",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2025-04",
+      "date": "2025-04",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2025-05",
+      "date": "2025-05",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2025-06",
+      "date": "2025-06",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2025-07",
+      "date": "2025-07",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2025-08",
+      "date": "2025-08",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2025-09",
+      "date": "2025-09",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2025-10",
+      "date": "2025-10",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2025-11",
+      "date": "2025-11",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2025-12",
+      "date": "2025-12",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2026-01",
+      "date": "2026-01",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2026-02",
+      "date": "2026-02",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    },
+    {
+      "id": "expense-2026-03",
+      "date": "2026-03",
+      "concept": "Gasto ficticio",
+      "amount": 1000
+    }
+  ],
+  "funds": [],
+  "snapshots": [],
+  "monthlyBalances": [
+    {
+      "month": "2024-01",
+      "fundSavings": 200,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": "{\"month\":\"2024-01\",\"fundSavings\":200,\"liquiditySavings\":0,\"source\":[[\"expenses:\\\"expense-2024-01\\\"\",\"{\\\"id\\\":\\\"expense-2024-01\\\",\\\"date\\\":\\\"2024-01\\\",\\\"concept\\\":\\\"Gasto ficticio\\\",\\\"amount\\\":1000}\"],[\"incomes:\\\"income-2024-01\\\"\",\"{\\\"id\\\":\\\"income-2024-01\\\",\\\"date\\\":\\\"2024-01\\\",\\\"concept\\\":\\\"Ingreso ficticio\\\",\\\"amount\\\":2000,\\\"owner\\\":\\\"Persona ficticia\\\"}\"]],\"entries\":[]}",
+      "note": "Ejemplo ficticio para validar vistas"
+    },
+    {
+      "month": "2024-02",
+      "fundSavings": 200,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": "{\"month\":\"2024-02\",\"fundSavings\":200,\"liquiditySavings\":0,\"source\":[[\"expenses:\\\"expense-2024-02\\\"\",\"{\\\"id\\\":\\\"expense-2024-02\\\",\\\"date\\\":\\\"2024-02\\\",\\\"concept\\\":\\\"Gasto ficticio\\\",\\\"amount\\\":1000}\"],[\"incomes:\\\"income-2024-02\\\"\",\"{\\\"id\\\":\\\"income-2024-02\\\",\\\"date\\\":\\\"2024-02\\\",\\\"concept\\\":\\\"Ingreso ficticio\\\",\\\"amount\\\":2000,\\\"owner\\\":\\\"Persona ficticia\\\"}\"]],\"entries\":[]}",
+      "note": "Ejemplo ficticio para validar vistas"
+    },
+    {
+      "month": "2024-03",
+      "fundSavings": 200,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": "{\"month\":\"2024-03\",\"fundSavings\":200,\"liquiditySavings\":0,\"source\":[[\"expenses:\\\"expense-2024-03\\\"\",\"{\\\"id\\\":\\\"expense-2024-03\\\",\\\"date\\\":\\\"2024-03\\\",\\\"concept\\\":\\\"Gasto ficticio\\\",\\\"amount\\\":1000}\"],[\"incomes:\\\"income-2024-03\\\"\",\"{\\\"id\\\":\\\"income-2024-03\\\",\\\"date\\\":\\\"2024-03\\\",\\\"concept\\\":\\\"Ingreso ficticio\\\",\\\"amount\\\":2000,\\\"owner\\\":\\\"Persona ficticia\\\"}\"]],\"entries\":[]}",
+      "note": "Ejemplo ficticio para validar vistas"
+    },
+    {
+      "month": "2024-04",
+      "fundSavings": 200,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": "{\"month\":\"2024-04\",\"fundSavings\":200,\"liquiditySavings\":0,\"source\":[[\"expenses:\\\"expense-2024-04\\\"\",\"{\\\"id\\\":\\\"expense-2024-04\\\",\\\"date\\\":\\\"2024-04\\\",\\\"concept\\\":\\\"Gasto ficticio\\\",\\\"amount\\\":1000}\"],[\"incomes:\\\"income-2024-04\\\"\",\"{\\\"id\\\":\\\"income-2024-04\\\",\\\"date\\\":\\\"2024-04\\\",\\\"concept\\\":\\\"Ingreso ficticio\\\",\\\"amount\\\":2000,\\\"owner\\\":\\\"Persona ficticia\\\"}\"]],\"entries\":[]}",
+      "note": "Ejemplo ficticio para validar vistas"
+    },
+    {
+      "month": "2024-05",
+      "fundSavings": 200,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": "{\"month\":\"2024-05\",\"fundSavings\":200,\"liquiditySavings\":0,\"source\":[[\"expenses:\\\"expense-2024-05\\\"\",\"{\\\"id\\\":\\\"expense-2024-05\\\",\\\"date\\\":\\\"2024-05\\\",\\\"concept\\\":\\\"Gasto ficticio\\\",\\\"amount\\\":1000}\"],[\"incomes:\\\"income-2024-05\\\"\",\"{\\\"id\\\":\\\"income-2024-05\\\",\\\"date\\\":\\\"2024-05\\\",\\\"concept\\\":\\\"Ingreso ficticio\\\",\\\"amount\\\":2000,\\\"owner\\\":\\\"Persona ficticia\\\"}\"]],\"entries\":[]}",
+      "note": "Ejemplo ficticio para validar vistas"
+    },
+    {
+      "month": "2024-06",
+      "fundSavings": 200,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": "{\"month\":\"2024-06\",\"fundSavings\":200,\"liquiditySavings\":0,\"source\":[[\"expenses:\\\"expense-2024-06\\\"\",\"{\\\"id\\\":\\\"expense-2024-06\\\",\\\"date\\\":\\\"2024-06\\\",\\\"concept\\\":\\\"Gasto ficticio\\\",\\\"amount\\\":1000}\"],[\"incomes:\\\"income-2024-06\\\"\",\"{\\\"id\\\":\\\"income-2024-06\\\",\\\"date\\\":\\\"2024-06\\\",\\\"concept\\\":\\\"Ingreso ficticio\\\",\\\"amount\\\":2000,\\\"owner\\\":\\\"Persona ficticia\\\"}\"]],\"entries\":[]}",
+      "note": "Ejemplo ficticio para validar vistas"
+    },
+    {
+      "month": "2024-07",
+      "fundSavings": 200,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": "{\"month\":\"2024-07\",\"fundSavings\":200,\"liquiditySavings\":0,\"source\":[[\"expenses:\\\"expense-2024-07\\\"\",\"{\\\"id\\\":\\\"expense-2024-07\\\",\\\"date\\\":\\\"2024-07\\\",\\\"concept\\\":\\\"Gasto ficticio\\\",\\\"amount\\\":1000}\"],[\"incomes:\\\"income-2024-07\\\"\",\"{\\\"id\\\":\\\"income-2024-07\\\",\\\"date\\\":\\\"2024-07\\\",\\\"concept\\\":\\\"Ingreso ficticio\\\",\\\"amount\\\":2000,\\\"owner\\\":\\\"Persona ficticia\\\"}\"]],\"entries\":[]}",
+      "note": "Ejemplo ficticio para validar vistas"
+    },
+    {
+      "month": "2024-08",
+      "fundSavings": 200,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": "{\"month\":\"2024-08\",\"fundSavings\":200,\"liquiditySavings\":0,\"source\":[[\"expenses:\\\"expense-2024-08\\\"\",\"{\\\"id\\\":\\\"expense-2024-08\\\",\\\"date\\\":\\\"2024-08\\\",\\\"concept\\\":\\\"Gasto ficticio\\\",\\\"amount\\\":1000}\"],[\"incomes:\\\"income-2024-08\\\"\",\"{\\\"id\\\":\\\"income-2024-08\\\",\\\"date\\\":\\\"2024-08\\\",\\\"concept\\\":\\\"Ingreso ficticio\\\",\\\"amount\\\":2000,\\\"owner\\\":\\\"Persona ficticia\\\"}\"]],\"entries\":[]}",
+      "note": "Ejemplo ficticio para validar vistas"
+    },
+    {
+      "month": "2024-09",
+      "fundSavings": 200,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": "{\"month\":\"2024-09\",\"fundSavings\":200,\"liquiditySavings\":0,\"source\":[[\"expenses:\\\"expense-2024-09\\\"\",\"{\\\"id\\\":\\\"expense-2024-09\\\",\\\"date\\\":\\\"2024-09\\\",\\\"concept\\\":\\\"Gasto ficticio\\\",\\\"amount\\\":1000}\"],[\"incomes:\\\"income-2024-09\\\"\",\"{\\\"id\\\":\\\"income-2024-09\\\",\\\"date\\\":\\\"2024-09\\\",\\\"concept\\\":\\\"Ingreso ficticio\\\",\\\"amount\\\":2000,\\\"owner\\\":\\\"Persona ficticia\\\"}\"]],\"entries\":[]}",
+      "note": "Ejemplo ficticio para validar vistas"
+    },
+    {
+      "month": "2024-10",
+      "fundSavings": 200,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": "{\"month\":\"2024-10\",\"fundSavings\":200,\"liquiditySavings\":0,\"source\":[[\"expenses:\\\"expense-2024-10\\\"\",\"{\\\"id\\\":\\\"expense-2024-10\\\",\\\"date\\\":\\\"2024-10\\\",\\\"concept\\\":\\\"Gasto ficticio\\\",\\\"amount\\\":1000}\"],[\"incomes:\\\"income-2024-10\\\"\",\"{\\\"id\\\":\\\"income-2024-10\\\",\\\"date\\\":\\\"2024-10\\\",\\\"concept\\\":\\\"Ingreso ficticio\\\",\\\"amount\\\":2000,\\\"owner\\\":\\\"Persona ficticia\\\"}\"]],\"entries\":[]}",
+      "note": "Ejemplo ficticio para validar vistas"
+    },
+    {
+      "month": "2024-11",
+      "fundSavings": 200,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": "{\"month\":\"2024-11\",\"fundSavings\":200,\"liquiditySavings\":0,\"source\":[[\"expenses:\\\"expense-2024-11\\\"\",\"{\\\"id\\\":\\\"expense-2024-11\\\",\\\"date\\\":\\\"2024-11\\\",\\\"concept\\\":\\\"Gasto ficticio\\\",\\\"amount\\\":1000}\"],[\"incomes:\\\"income-2024-11\\\"\",\"{\\\"id\\\":\\\"income-2024-11\\\",\\\"date\\\":\\\"2024-11\\\",\\\"concept\\\":\\\"Ingreso ficticio\\\",\\\"amount\\\":2000,\\\"owner\\\":\\\"Persona ficticia\\\"}\"]],\"entries\":[]}",
+      "note": "Ejemplo ficticio para validar vistas"
+    },
+    {
+      "month": "2024-12",
+      "fundSavings": 200,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": "{\"month\":\"2024-12\",\"fundSavings\":200,\"liquiditySavings\":0,\"source\":[[\"expenses:\\\"expense-2024-12\\\"\",\"{\\\"id\\\":\\\"expense-2024-12\\\",\\\"date\\\":\\\"2024-12\\\",\\\"concept\\\":\\\"Gasto ficticio\\\",\\\"amount\\\":1000}\"],[\"incomes:\\\"income-2024-12\\\"\",\"{\\\"id\\\":\\\"income-2024-12\\\",\\\"date\\\":\\\"2024-12\\\",\\\"concept\\\":\\\"Ingreso ficticio\\\",\\\"amount\\\":2000,\\\"owner\\\":\\\"Persona ficticia\\\"}\"]],\"entries\":[]}",
+      "note": "Ejemplo ficticio para validar vistas"
+    },
+    {
+      "month": "2025-01",
+      "fundSavings": 400,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": "{\"month\":\"2025-01\",\"fundSavings\":400,\"liquiditySavings\":0,\"source\":[[\"expenses:\\\"expense-2025-01\\\"\",\"{\\\"id\\\":\\\"expense-2025-01\\\",\\\"date\\\":\\\"2025-01\\\",\\\"concept\\\":\\\"Gasto ficticio\\\",\\\"amount\\\":1000}\"],[\"incomes:\\\"income-2025-01\\\"\",\"{\\\"id\\\":\\\"income-2025-01\\\",\\\"date\\\":\\\"2025-01\\\",\\\"concept\\\":\\\"Ingreso ficticio\\\",\\\"amount\\\":2000,\\\"owner\\\":\\\"Persona ficticia\\\"}\"]],\"entries\":[]}",
+      "note": "Ejemplo ficticio para validar vistas"
+    },
+    {
+      "month": "2025-02",
+      "fundSavings": 400,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": "{\"month\":\"2025-02\",\"fundSavings\":400,\"liquiditySavings\":0,\"source\":[[\"expenses:\\\"expense-2025-02\\\"\",\"{\\\"id\\\":\\\"expense-2025-02\\\",\\\"date\\\":\\\"2025-02\\\",\\\"concept\\\":\\\"Gasto ficticio\\\",\\\"amount\\\":1000}\"],[\"incomes:\\\"income-2025-02\\\"\",\"{\\\"id\\\":\\\"income-2025-02\\\",\\\"date\\\":\\\"2025-02\\\",\\\"concept\\\":\\\"Ingreso ficticio\\\",\\\"amount\\\":2000,\\\"owner\\\":\\\"Persona ficticia\\\"}\"]],\"entries\":[]}",
+      "note": "Ejemplo ficticio para validar vistas"
+    },
+    {
+      "month": "2025-03",
+      "fundSavings": 400,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": "{\"month\":\"2025-03\",\"fundSavings\":400,\"liquiditySavings\":0,\"source\":[[\"expenses:\\\"expense-2025-03\\\"\",\"{\\\"id\\\":\\\"expense-2025-03\\\",\\\"date\\\":\\\"2025-03\\\",\\\"concept\\\":\\\"Gasto ficticio\\\",\\\"amount\\\":1000}\"],[\"incomes:\\\"income-2025-03\\\"\",\"{\\\"id\\\":\\\"income-2025-03\\\",\\\"date\\\":\\\"2025-03\\\",\\\"concept\\\":\\\"Ingreso ficticio\\\",\\\"amount\\\":2000,\\\"owner\\\":\\\"Persona ficticia\\\"}\"]],\"entries\":[]}",
+      "note": "Ejemplo ficticio para validar vistas"
+    },
+    {
+      "month": "2025-04",
+      "fundSavings": 400,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": "{\"month\":\"2025-04\",\"fundSavings\":400,\"liquiditySavings\":0,\"source\":[[\"expenses:\\\"expense-2025-04\\\"\",\"{\\\"id\\\":\\\"expense-2025-04\\\",\\\"date\\\":\\\"2025-04\\\",\\\"concept\\\":\\\"Gasto ficticio\\\",\\\"amount\\\":1000}\"],[\"incomes:\\\"income-2025-04\\\"\",\"{\\\"id\\\":\\\"income-2025-04\\\",\\\"date\\\":\\\"2025-04\\\",\\\"concept\\\":\\\"Ingreso ficticio\\\",\\\"amount\\\":2000,\\\"owner\\\":\\\"Persona ficticia\\\"}\"]],\"entries\":[]}",
+      "note": "Ejemplo ficticio para validar vistas"
+    },
+    {
+      "month": "2025-05",
+      "fundSavings": 400,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": "{\"month\":\"2025-05\",\"fundSavings\":400,\"liquiditySavings\":0,\"source\":[[\"expenses:\\\"expense-2025-05\\\"\",\"{\\\"id\\\":\\\"expense-2025-05\\\",\\\"date\\\":\\\"2025-05\\\",\\\"concept\\\":\\\"Gasto ficticio\\\",\\\"amount\\\":1000}\"],[\"incomes:\\\"income-2025-05\\\"\",\"{\\\"id\\\":\\\"income-2025-05\\\",\\\"date\\\":\\\"2025-05\\\",\\\"concept\\\":\\\"Ingreso ficticio\\\",\\\"amount\\\":2000,\\\"owner\\\":\\\"Persona ficticia\\\"}\"]],\"entries\":[]}",
+      "note": "Ejemplo ficticio para validar vistas"
+    },
+    {
+      "month": "2025-06",
+      "fundSavings": 400,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": "{\"month\":\"2025-06\",\"fundSavings\":400,\"liquiditySavings\":0,\"source\":[[\"expenses:\\\"expense-2025-06\\\"\",\"{\\\"id\\\":\\\"expense-2025-06\\\",\\\"date\\\":\\\"2025-06\\\",\\\"concept\\\":\\\"Gasto ficticio\\\",\\\"amount\\\":1000}\"],[\"incomes:\\\"income-2025-06\\\"\",\"{\\\"id\\\":\\\"income-2025-06\\\",\\\"date\\\":\\\"2025-06\\\",\\\"concept\\\":\\\"Ingreso ficticio\\\",\\\"amount\\\":2000,\\\"owner\\\":\\\"Persona ficticia\\\"}\"]],\"entries\":[]}",
+      "note": "Ejemplo ficticio para validar vistas"
+    },
+    {
+      "month": "2025-07",
+      "fundSavings": 400,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": "{\"month\":\"2025-07\",\"fundSavings\":400,\"liquiditySavings\":0,\"source\":[[\"expenses:\\\"expense-2025-07\\\"\",\"{\\\"id\\\":\\\"expense-2025-07\\\",\\\"date\\\":\\\"2025-07\\\",\\\"concept\\\":\\\"Gasto ficticio\\\",\\\"amount\\\":1000}\"],[\"incomes:\\\"income-2025-07\\\"\",\"{\\\"id\\\":\\\"income-2025-07\\\",\\\"date\\\":\\\"2025-07\\\",\\\"concept\\\":\\\"Ingreso ficticio\\\",\\\"amount\\\":2000,\\\"owner\\\":\\\"Persona ficticia\\\"}\"]],\"entries\":[]}",
+      "note": "Ejemplo ficticio para validar vistas"
+    },
+    {
+      "month": "2025-08",
+      "fundSavings": 400,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": "{\"month\":\"2025-08\",\"fundSavings\":400,\"liquiditySavings\":0,\"source\":[[\"expenses:\\\"expense-2025-08\\\"\",\"{\\\"id\\\":\\\"expense-2025-08\\\",\\\"date\\\":\\\"2025-08\\\",\\\"concept\\\":\\\"Gasto ficticio\\\",\\\"amount\\\":1000}\"],[\"incomes:\\\"income-2025-08\\\"\",\"{\\\"id\\\":\\\"income-2025-08\\\",\\\"date\\\":\\\"2025-08\\\",\\\"concept\\\":\\\"Ingreso ficticio\\\",\\\"amount\\\":2000,\\\"owner\\\":\\\"Persona ficticia\\\"}\"]],\"entries\":[]}",
+      "note": "Ejemplo ficticio para validar vistas"
+    },
+    {
+      "month": "2025-09",
+      "fundSavings": 400,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": "{\"month\":\"2025-09\",\"fundSavings\":400,\"liquiditySavings\":0,\"source\":[[\"expenses:\\\"expense-2025-09\\\"\",\"{\\\"id\\\":\\\"expense-2025-09\\\",\\\"date\\\":\\\"2025-09\\\",\\\"concept\\\":\\\"Gasto ficticio\\\",\\\"amount\\\":1000}\"],[\"incomes:\\\"income-2025-09\\\"\",\"{\\\"id\\\":\\\"income-2025-09\\\",\\\"date\\\":\\\"2025-09\\\",\\\"concept\\\":\\\"Ingreso ficticio\\\",\\\"amount\\\":2000,\\\"owner\\\":\\\"Persona ficticia\\\"}\"]],\"entries\":[]}",
+      "note": "Ejemplo ficticio para validar vistas"
+    },
+    {
+      "month": "2025-10",
+      "fundSavings": 400,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": "{\"month\":\"2025-10\",\"fundSavings\":400,\"liquiditySavings\":0,\"source\":[[\"expenses:\\\"expense-2025-10\\\"\",\"{\\\"id\\\":\\\"expense-2025-10\\\",\\\"date\\\":\\\"2025-10\\\",\\\"concept\\\":\\\"Gasto ficticio\\\",\\\"amount\\\":1000}\"],[\"incomes:\\\"income-2025-10\\\"\",\"{\\\"id\\\":\\\"income-2025-10\\\",\\\"date\\\":\\\"2025-10\\\",\\\"concept\\\":\\\"Ingreso ficticio\\\",\\\"amount\\\":2000,\\\"owner\\\":\\\"Persona ficticia\\\"}\"]],\"entries\":[]}",
+      "note": "Ejemplo ficticio para validar vistas"
+    },
+    {
+      "month": "2025-11",
+      "fundSavings": 400,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": "{\"month\":\"2025-11\",\"fundSavings\":400,\"liquiditySavings\":0,\"source\":[[\"expenses:\\\"expense-2025-11\\\"\",\"{\\\"id\\\":\\\"expense-2025-11\\\",\\\"date\\\":\\\"2025-11\\\",\\\"concept\\\":\\\"Gasto ficticio\\\",\\\"amount\\\":1000}\"],[\"incomes:\\\"income-2025-11\\\"\",\"{\\\"id\\\":\\\"income-2025-11\\\",\\\"date\\\":\\\"2025-11\\\",\\\"concept\\\":\\\"Ingreso ficticio\\\",\\\"amount\\\":2000,\\\"owner\\\":\\\"Persona ficticia\\\"}\"]],\"entries\":[]}",
+      "note": "Ejemplo ficticio para validar vistas"
+    },
+    {
+      "month": "2025-12",
+      "fundSavings": 400,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": "{\"month\":\"2025-12\",\"fundSavings\":400,\"liquiditySavings\":0,\"source\":[[\"expenses:\\\"expense-2025-12\\\"\",\"{\\\"id\\\":\\\"expense-2025-12\\\",\\\"date\\\":\\\"2025-12\\\",\\\"concept\\\":\\\"Gasto ficticio\\\",\\\"amount\\\":1000}\"],[\"incomes:\\\"income-2025-12\\\"\",\"{\\\"id\\\":\\\"income-2025-12\\\",\\\"date\\\":\\\"2025-12\\\",\\\"concept\\\":\\\"Ingreso ficticio\\\",\\\"amount\\\":2000,\\\"owner\\\":\\\"Persona ficticia\\\"}\"]],\"entries\":[]}",
+      "note": "Ejemplo ficticio para validar vistas"
+    },
+    {
+      "month": "2026-01",
+      "fundSavings": 500,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": "{\"month\":\"2026-01\",\"fundSavings\":500,\"liquiditySavings\":0,\"source\":[[\"expenses:\\\"expense-2026-01\\\"\",\"{\\\"id\\\":\\\"expense-2026-01\\\",\\\"date\\\":\\\"2026-01\\\",\\\"concept\\\":\\\"Gasto ficticio\\\",\\\"amount\\\":1000}\"],[\"incomes:\\\"income-2026-01\\\"\",\"{\\\"id\\\":\\\"income-2026-01\\\",\\\"date\\\":\\\"2026-01\\\",\\\"concept\\\":\\\"Ingreso ficticio\\\",\\\"amount\\\":3000,\\\"owner\\\":\\\"Persona ficticia\\\"}\"]],\"entries\":[]}",
+      "note": "Ejemplo ficticio para validar vistas"
+    },
+    {
+      "month": "2026-02",
+      "fundSavings": -100,
+      "liquiditySavings": 0,
+      "entries": [],
+      "reviewedAgainst": null,
+      "note": "Ejemplo ficticio para validar vistas"
+    }
+  ],
+  "backupVersion": 2
+}

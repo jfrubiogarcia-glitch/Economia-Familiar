@@ -56,7 +56,8 @@ revisión efectiva vuelve a pendiente. Los importes y notas guardados no se
 reescriben; se compara la revisión contra sus datos de origen. Reordenar los
 apuntes o modificar una nota no cambia por sí solo la revisión financiera.
 
-La tabla y el gráfico contienen doce meses. No se inventan valores cero para
+La tabla y el gráfico contienen doce meses en Anual, y de enero al mes final
+en Acumulado del año. No se inventan valores cero para
 meses sin balance. El gasto pendiente se distingue gráficamente del revisado.
 Los acumulados de los siete conceptos utilizan únicamente los mismos meses
 revisados; la media de gasto divide por su número, no siempre entre doce.
@@ -108,7 +109,7 @@ Ejecutar `node --test tests/backup.test.cjs`. El mismo punto de entrada incluye
 las pruebas previas y `monthly-balance.cases.cjs`: fórmulas, negativos, ceros,
 Ahorro, retiradas ya registradas, traspasos, revisión, media, versiones, errores,
 copias y manejadores reales de la aplicación con APIs simuladas. Resultado de
-esta preparación: **164 pruebas satisfactorias, ninguna fallida u omitida**.
+esta preparación: **174 pruebas satisfactorias, ninguna fallida u omitida**.
 
 Se comprueban también sintaxis, compilación JSX, renderizado de servidor con
 React 18 real y entrega HTTP de los archivos. El renderizado de servidor no
@@ -147,3 +148,49 @@ La validación manual anterior de otras pestañas no valida esta nueva función.
 
 Persistencia, interacción real y móvil/iPhone permanecen pendientes hasta
 ejecutar esos pasos. No introducir ni enviar datos reales para validarlos.
+
+## Ampliación: tres vistas y validación única de la PR #4
+
+Los registros y el formato JSON no cambian: se guardan únicamente datos mensuales.
+Mensual permite editar el mes y consultar el porcentaje de ahorro. Acumulado del
+año permite elegir año y mes final, de enero hasta ese mes inclusive. Anual
+consulta los doce meses y compara con ejercicios anteriores completos.
+
+El porcentaje es ahorro neto total / ingresos incluidos × 100, redondeado a dos
+decimales; se conserva el signo del ahorro. Sin ingresos positivos o ahorro
+conocido se muestra sin porcentaje calculable. En un acumulado se usa el cociente
+de las sumas de los mismos meses revisados, nunca la media de porcentajes.
+
+Los informes muestran revisados/período, pendientes y sin datos. Un mes con
+apuntes pero sin balance está pendiente, no vacío. Los acumulados incompletos
+se identifican como parciales; sin meses revisados no se generan ceros. Solo se
+comparan ejercicios cuando ambos tienen doce meses revisados. Los gráficos
+separan ahorro y gasto revisados de pendientes y dejan huecos donde faltan datos.
+Cambiar de vista no guarda ni duplica registros y conserva el borrador mensual.
+
+Realizar **una sola sesión de validación** en Invitado: ejecutar los pasos 1–8
+anteriores y, en el mismo perfil ficticio, continuar con estos pasos:
+
+9. Importar `15-balance-vistas.json`. En Mensual seleccionar enero de 2026:
+   ingresos 3000, ahorro 500, gasto estimado 2500 y porcentaje 16,67 %.
+   Febrero está pendiente, con ahorro −100 y porcentaje −10 %; marzo contiene
+   apuntes sin balance y está pendiente; abril no tiene datos. No guardar cambios.
+10. En Acumulado elegir 2026 y mes final 4: **1/4 revisados, 2 pendientes y
+    1 sin datos**. Acumulado parcial: ingresos 3000, ahorro 500, gasto 2500,
+    porcentaje 16,67 % y media 2500. Febrero no suma. Elegir mes final 1:
+    cobertura completa 1/1; no se incluyen meses posteriores.
+11. En Anual elegir 2025: 12/12, ingresos 24000, ahorro 4800, gasto 19200,
+    porcentaje 20 % y media 1600. Frente a 2024: diferencia de gasto −2400
+    y de ahorro +2400. Al elegir 2026 no debe haber comparación anual, por
+    cobertura insuficiente. Comprobar gráficos con huecos y líneas pendientes.
+12. Volver a Mensual y revisar/guardar febrero de 2026 sin cambiar sus cifras:
+    el acumulado hasta febrero será 2/2, ingresos 4000, ahorro 400, gasto 3600,
+    porcentaje **10 %** y media 1800. No debe mostrar la media de porcentajes.
+    Cambiar un ingreso reabre la revisión y actualiza la cobertura.
+13. Escribir un borrador mensual sin guardarlo, cambiar de vista/año y volver:
+    debe conservarse y no entrar en los informes. Exportar, recargar y restaurar:
+    únicamente persisten los meses guardados, sin duplicados. Comprobar las tres
+    vistas, selectores y gráficos también en emulación móvil.
+
+Las pruebas automatizadas adicionales cubren estos límites, las comparaciones y
+los selectores con APIs simuladas. La interacción real sigue pendiente.

@@ -105,13 +105,41 @@
         record.reviewedAgainst = reviewed ? result.fingerprint : null;
         return record;
     }
-    function yearSummary(data, year) {
+    function savingsRate(savings, income) {
+        // No meaningful income-based rate when income is unknown, zero or negative.
+        if (!Number.isFinite(savings) || !Number.isFinite(income) || income <= 0) return null;
+        const percentage = savings / income * 100;
+        if (!Number.isFinite(percentage) || !Number.isSafeInteger(Math.round(percentage * 100))) return null;
+        return euro(percentage);
+    }
+    function monthStatus(row) {
+        return row.reviewed ? 'reviewed' : row.hasRecord || row.treatments.length ? 'pending' : 'missing';
+    }
+    function periodSummary(data, year, endMonth = 12) {
         if (!/^\d{4}$/.test(String(year))) fail('año inválido.');
-        const months = Array.from({ length: 12 }, (_, i) => calculate(data, `${year}-${String(i + 1).padStart(2, '0')}`));
+        if (!Number.isInteger(endMonth) || endMonth < 1 || endMonth > 12) fail('mes final inválido.');
+        const months = Array.from({ length: endMonth }, (_, i) => calculate(data, `${year}-${String(i + 1).padStart(2, '0')}`));
         const included = months.filter(row => row.reviewed);
         const totals = Object.fromEntries(METRICS.map(metric => [metric, included.length ? euro(included.reduce((sum, row) => sum + row[metric], 0)) : null]));
-        return { months, totals, count: included.length, pending: months.filter(row => row.hasRecord && !row.reviewed).length,
+        return { months, totals, count: included.length, expected: endMonth, complete: included.length === endMonth,
+            pending: months.filter(row => monthStatus(row) === 'pending').length,
+            missing: months.filter(row => monthStatus(row) === 'missing').length,
+            savingsRate: savingsRate(totals.totalSavings, totals.income),
             averageExpense: included.length ? euro(totals.totalExpense / included.length) : null };
     }
-    return { ACTIONS, METRICS, euro, key, sourceSignature, monthEntries, validateRecords, calculate, prepareRecord, yearSummary };
+    function yearSummary(data, year) { return periodSummary(data, year); }
+    function compareYears(data, selectedYear) {
+        const selected = yearSummary(data, selectedYear);
+        const years = new Set([String(selectedYear), ...(data.monthlyBalances || []).map(row => row.month.slice(0, 4)),
+            ...data.incomes.map(row => row.date.slice(0, 4)), ...data.expenses.map(row => row.date.slice(0, 4))]);
+        return [...years].filter(year => year <= String(selectedYear)).sort().reverse().map(year => {
+            const summary = year === String(selectedYear) ? selected : yearSummary(data, year);
+            const comparable = year !== String(selectedYear) && selected.complete && summary.complete;
+            return { year, ...summary, comparable,
+                expenseDifference: comparable ? euro(selected.totals.totalExpense - summary.totals.totalExpense) : null,
+                savingsDifference: comparable ? euro(selected.totals.totalSavings - summary.totals.totalSavings) : null };
+        });
+    }
+    return { ACTIONS, METRICS, euro, key, sourceSignature, monthEntries, validateRecords, calculate, prepareRecord, yearSummary,
+        savingsRate, monthStatus, periodSummary, compareYears };
 }));

@@ -1620,6 +1620,11 @@
             const [note, setNote] = useState('');
             const [reviewed, setReviewed] = useState(false);
             const loadedDraft = useRef('');
+            const [view, setView] = useState('monthly');
+            const [reportYear, setReportYear] = useState(String(today.getFullYear()));
+            const [endMonth, setEndMonth] = useState(today.getMonth() + 1);
+            const percent = value => value == null ? 'Sin porcentaje calculable' : `${new Intl.NumberFormat('es-ES', { maximumFractionDigits: 2 }).format(value)} %`;
+            const statusLabel = row => ({ reviewed: 'Revisado · estimaciones', pending: 'Pendiente', missing: 'Sin datos' })[M.monthStatus(row)];
             const saved = (data.monthlyBalances || []).find(row => row.month === month);
             const sources = JSON.stringify(M.monthEntries(data, month).map(row => [row.key, row.source]));
             useEffect(() => {
@@ -1634,8 +1639,8 @@
             }, [month, saved, sources]);
             const dirty = loadedDraft.current !== JSON.stringify([fundText, liquidityText, entries, note]);
             const draft = { month, fundSavings: parseAmount(fundText), liquiditySavings: parseAmount(liquidityText), entries, reviewedAgainst: null, note };
-            let result, annual, savedNeedsReview = false, calculationError = '';
-            try { result = M.calculate(data, month, draft); annual = M.yearSummary(data, month.slice(0, 4)); savedNeedsReview = Boolean(saved?.reviewedAgainst && !M.calculate(data, month, saved).reviewed); }
+            let result, annual, comparison = [], savedNeedsReview = false, calculationError = '';
+            try { result = M.calculate(data, month, draft); annual = M.periodSummary(data, view === 'monthly' ? month.slice(0, 4) : reportYear, view === 'ytd' ? endMonth : 12); if (view === 'annual') comparison = M.compareYears(data, reportYear); savedNeedsReview = Boolean(saved?.reviewedAgainst && !M.calculate(data, month, saved).reviewed); }
             catch (error) { calculationError = error.message; }
             const labels = { income: 'Ingresos incluidos', expenses: 'Gastos registrados incluidos', fundSavings: 'Ahorro neto en fondos y planes', liquiditySavings: 'Ahorro neto en liquidez', totalSavings: 'Ahorro neto total', totalExpense: 'Gasto total estimado', unitemized: 'Gasto no desglosado estimado' };
             const actionLabels = { income: 'Ingreso real: incluir', expense: 'Gasto real registrado: incluir', saving: 'Ahorro real: excluir de gastos', internal: 'Transferencia interna: excluir', withdrawal: 'Retirada de ahorro: excluir de ingresos' };
@@ -1657,7 +1662,8 @@
                 { label: 'Gasto estimado: mes revisado', data: annual.months.map(row => row.reviewed ? row.totalExpense : null), borderColor: '#2563eb', spanGaps: false },
                 { label: 'Gasto estimado: pendiente', data: annual.months.map(row => !row.reviewed && row.hasInputs ? row.totalExpense : null), borderColor: '#d97706', borderDash: [6, 4], spanGaps: false },
                 { label: 'Gastos registrados incluidos', data: annual.months.map(row => row.hasInputs ? row.expenses : null), borderColor: '#dc2626', spanGaps: false },
-                { label: 'Ahorro neto total', data: annual.months.map(row => row.hasInputs ? row.totalSavings : null), borderColor: '#059669', spanGaps: false }
+                { label: 'Ahorro neto: revisado', data: annual.months.map(row => row.reviewed ? row.totalSavings : null), borderColor: '#059669', spanGaps: false },
+                { label: 'Ahorro neto: pendiente', data: annual.months.map(row => !row.reviewed && row.hasInputs ? row.totalSavings : null), borderColor: '#059669', borderDash: [6, 4], spanGaps: false }
             ] } : null;
             return (
                 <div className="space-y-6">
@@ -1665,7 +1671,15 @@
                         <h2 className="text-xl font-bold">Balance mensual familiar</h2>
                         <p>Dos importes mensuales, sin registrar cada compra. Se utiliza el mes de cobro o cargo. Registrado no significa conciliado bancariamente: el gasto total y la diferencia no desglosada son siempre estimaciones.</p>
                         <p>Excluye de ambos importes los traspasos de ahorro ya existente entre cuentas, fondos y liquidez y las revalorizaciones. Una retirada destinada a consumo reduce el ahorro neto; una retirada que sigue ahorrada en otra cuenta es un movimiento interno.</p>
-                        <form onSubmit={handleSave} className="space-y-4">
+                        <nav aria-label="Vistas del balance" className="flex flex-wrap gap-2">
+                            {[['monthly','Mensual'],['ytd','Acumulado del año'],['annual','Anual']].map(([key,label]) => <button key={key} type="button" aria-pressed={view === key} onClick={()=>setView(key)} className={`border rounded px-3 py-2 ${view === key ? 'bg-blue-700 text-white' : ''}`}>{label}</button>)}
+                        </nav>
+                        {view !== 'monthly' && <div className="flex flex-wrap gap-4">
+                            <label>Año<select aria-label="Año del balance" value={reportYear} onChange={e=>setReportYear(e.target.value)} className="block border rounded p-2">{[...new Set([String(today.getFullYear()), reportYear, ...(data.monthlyBalances || []).map(row=>row.month.slice(0,4)), ...data.incomes.map(row=>row.date.slice(0,4)), ...data.expenses.map(row=>row.date.slice(0,4))])].sort().reverse().map(year=><option key={year} value={year}>{year}</option>)}</select></label>
+                            {view === 'ytd' && <label>Mes final<select aria-label="Mes final del acumulado" value={endMonth} onChange={e=>setEndMonth(Number(e.target.value))} className="block border rounded p-2">{Array.from({length:12},(_,i)=><option key={i+1} value={i+1}>{i+1}</option>)}</select></label>}
+                            <p>Solo consulta: los datos se introducen en la vista Mensual. Los cambios mensuales sin guardar se conservan al cambiar de vista y no entran en los acumulados.</p>
+                        </div>}
+                        {view === 'monthly' && <form onSubmit={handleSave} className="space-y-4">
                             <label className="block">Mes<input type="month" value={month} onChange={e=>changeMonth(e.target.value)} className="block border rounded p-2" required /></label>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <label>Ahorro neto nuevo en fondos y planes (€)<AmountInput aria-label="Ahorro neto en fondos y planes" value={fundText} onChange={e=>{setFundText(e.target.value);setReviewed(false);}} className="block w-full p-2 border rounded" placeholder="Sin dato; introduce 0 si es cero" required /></label>
@@ -1690,23 +1704,33 @@
                             <label className="block">Nota opcional<textarea value={note} onChange={e=>setNote(e.target.value)} className="block w-full border p-2 rounded" /></label>
                             <label className="flex gap-2 items-start"><input type="checkbox" checked={reviewed} disabled={!result?.canReview} onChange={e=>setReviewed(e.target.checked)} />He revisado ingresos, ahorro, movimientos y advertencias: las transferencias y retiradas no suman ingresos reales y las retiradas destinadas a consumo figuran una sola vez en el ahorro neto. No quedan importes pendientes de conciliar. Esto no convierte las estimaciones en gastos confirmados.</label>
                             <div className="flex flex-wrap gap-3 items-center"><button type="submit" disabled={!result?.hasInputs || Boolean(calculationError)} className="px-4 py-2 rounded bg-blue-700 text-white disabled:opacity-50">Guardar balance</button><span>{dirty ? 'Vista previa: cambios sin guardar' : 'Importes guardados; consulta el estado del mes en la tabla anual'}</span></div>
-                        </form>
+                        </form>}
                     </section>
-                    <section className="bg-white border rounded-xl p-5 space-y-3">
+                    {view === 'monthly' && <section className="bg-white border rounded-xl p-5 space-y-3">
                         <h3 className="font-bold">Resumen de {month}{dirty ? ' (vista previa)' : ''}</h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">{M.METRICS.map(metric=><div key={metric} className="p-3 bg-gray-50 rounded"><p>{labels[metric]}</p><p className="text-xl font-bold">{formatOptionalCurrency(result?.[metric])}</p></div>)}</div>
+                        <p className="font-bold">Porcentaje de ahorro: {percent(M.savingsRate(result?.totalSavings ?? null, result?.income ?? null))}{dirty || !saved || !saved.reviewedAgainst || savedNeedsReview ? ' · provisional, mes pendiente' : ' · mes revisado'}</p>
+                        <p>Porcentaje = ahorro neto total / ingresos incluidos × 100. Sin ingresos positivos no se calcula; un ahorro negativo mantiene su signo.</p>
                         <p>Fórmulas: ahorro total = fondos + liquidez; gasto estimado = ingresos incluidos − ahorro total; no desglosado estimado = gasto estimado − gastos registrados incluidos.</p>
                         {result && <p>Apuntes originales: ingresos {formatCurrency(result.rawIncome)} y gastos/ahorro {formatCurrency(result.rawExpenses)}. Incluidos tras tu revisión: {formatCurrency(result.income)} y {formatCurrency(result.expenses)}. No se añaden gastos automáticamente por la diferencia.</p>}
-                    </section>
+                    </section>}
                     {annual && <section className="bg-white border rounded-xl p-5 space-y-4">
-                        <h3 className="font-bold">Evolución y acumulado de {month.slice(0,4)}</h3>
-                        <p>{annual.count}/12 meses revisados · {annual.pending} guardados pendientes. Los totales usan únicamente los mismos meses revisados para todos los conceptos.</p>
+                        <h3 className="font-bold">{view === 'ytd' ? `Acumulado de enero a ${String(endMonth).padStart(2,'0')}` : 'Ejercicio completo'} · {view === 'monthly' ? month.slice(0,4) : reportYear}</h3>
+                        <p role="status">{annual.count}/{annual.expected} meses revisados · {annual.pending} pendientes · {annual.missing} sin datos. {annual.complete ? 'Cobertura completa del período; el gasto sigue siendo estimado.' : 'Acumulado parcial de meses revisados: no es el total real del período.'}</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">{M.METRICS.map(metric=><div key={metric} className="p-3 bg-gray-50 rounded"><p>{labels[metric]} · {annual.count}/{annual.expected} meses</p><p className="text-xl font-bold">{formatOptionalCurrency(annual.totals[metric])}</p></div>)}</div>
+                        <p className="font-bold">Porcentaje de ahorro de los {annual.count} meses incluidos: {percent(annual.savingsRate)}{!annual.complete ? ' · parcial' : ''}</p>
+                        <p>Se divide el ahorro total por los ingresos totales de los mismos meses revisados; no se promedian porcentajes mensuales. Sin ingresos positivos no se calcula.</p>
                         <p className="text-lg font-bold">Media mensual de gasto estimado: {formatOptionalCurrency(annual.averageExpense)} · divisor: {annual.count || 'sin meses revisados'}</p>
                         <SimpleChart data={chartData} />
-                        <div className="overflow-x-auto table-scroll"><table className="w-full text-sm text-right"><thead><tr><th className="p-2">Mes</th>{M.METRICS.map(metric=><th key={metric} className="p-2">{labels[metric]}</th>)}<th className="p-2">Estado</th></tr></thead>
-                            <tbody>{annual.months.map(row=><tr key={row.month}><td className="p-2"><button type="button" onClick={()=>changeMonth(row.month)} className="text-blue-700 underline">{row.month}</button></td>{M.METRICS.map(metric=><td key={metric} className="p-2">{formatOptionalCurrency(!row.hasRecord && !row.treatments.length ? null : row[metric])}</td>)}<td className="p-2">{!row.hasRecord ? 'Sin balance' : row.reviewed ? 'Revisado · estimaciones' : row.needsReview ? 'Reabrir revisión' : 'Pendiente'}</td></tr>)}</tbody>
-                            <tfoot><tr className="font-bold"><td className="p-2">Acumulado de {annual.count} meses revisados</td>{M.METRICS.map(metric=><td key={metric} className="p-2">{formatOptionalCurrency(annual.totals[metric])}</td>)}<td></td></tr></tfoot>
+                        <div className="overflow-x-auto table-scroll"><table className="w-full text-sm text-right"><thead><tr><th className="p-2">Mes</th>{M.METRICS.map(metric=><th key={metric} className="p-2">{labels[metric]}</th>)}<th className="p-2">Ahorro %</th><th className="p-2">Estado</th></tr></thead>
+                            <tbody>{annual.months.map(row=><tr key={row.month}><td className="p-2"><button type="button" onClick={()=>{changeMonth(row.month);setView('monthly');}} className="text-blue-700 underline">{row.month}</button></td>{M.METRICS.map(metric=><td key={metric} className="p-2">{formatOptionalCurrency(!row.hasRecord && !row.treatments.length ? null : row[metric])}</td>)}<td className="p-2">{percent(M.savingsRate(row.totalSavings, row.income))}</td><td className="p-2">{row.needsReview ? 'Pendiente · reabrir revisión' : statusLabel(row)}</td></tr>)}</tbody>
+                            <tfoot><tr className="font-bold"><td className="p-2">Acumulado de {annual.count} meses revisados</td>{M.METRICS.map(metric=><td key={metric} className="p-2">{formatOptionalCurrency(annual.totals[metric])}</td>)}<td className="p-2">{percent(annual.savingsRate)}</td><td></td></tr></tfoot>
                         </table></div>
+                        {view === 'annual' && <div className="space-y-3">
+                            <h4 className="font-bold">Comparación con ejercicios anteriores</h4>
+                            <p>Solo se comparan ejercicios con 12/12 meses revisados en ambos años. Los ejercicios incompletos muestran su cobertura, sin extrapolar ni comparar sus sumas parciales. Diferencias: año seleccionado menos año anterior.</p>
+                            <div className="overflow-x-auto"><table className="w-full text-sm text-right"><thead><tr><th>Año</th><th>Cobertura</th><th>Gasto estimado anual</th><th>Ahorro anual</th><th>Ahorro %</th><th>Diferencia gasto</th><th>Diferencia ahorro</th></tr></thead><tbody>{comparison.map(row=><tr key={row.year}><td className="p-2">{row.year}</td><td>{row.count}/12 revisados · {row.pending} pendientes · {row.missing} sin datos</td><td>{formatOptionalCurrency(row.complete ? row.totals.totalExpense : null)}</td><td>{formatOptionalCurrency(row.complete ? row.totals.totalSavings : null)}</td><td>{percent(row.complete ? row.savingsRate : null)}</td><td>{row.comparable ? formatCurrency(row.expenseDifference) : 'Sin comparación'}</td><td>{row.comparable ? formatCurrency(row.savingsDifference) : 'Sin comparación'}</td></tr>)}</tbody></table></div>
+                        </div>}
                     </section>}
                 </div>
             );
