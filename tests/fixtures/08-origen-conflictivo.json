@@ -1,0 +1,6 @@
+{
+  "incomes": [],
+  "expenses": [],
+  "funds": [{ "id": "fondo-prueba", "name": "FONDO FICTICIO", "type": "Renta Variable", "gestora": "ENTIDAD FICTICIA", "start": "2026-01-01", "isin": "N/A" }],
+  "snapshots": [{ "id": "foto-prueba", "date": "2026-10-01", "liquidity": 50, "fundsData": { "fondo-prueba": { "ingreso": 100, "value": 121 } } }]
+}

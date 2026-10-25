@@ -170,12 +170,12 @@ test('detects concurrent storage changes during confirmation and preserves the n
 
 // Exercise the actual application's event handlers without pretending this is a
 // browser/visual test. Hooks and file/download APIs below are controlled fixtures.
-function appHarness(storage, fileFailure = false, downloadFailure = false) {
+function appHarness(storage, fileFailure = false, downloadFailure = false, deferredReads = false) {
     const html = fs.readFileSync(require.resolve('../index.html'), 'utf8');
     const start = html.indexOf('        const App = () => {') + '        const App = () => {'.length;
     const end = html.indexOf('\n            return (\n                <div className="min-h-screen', start);
     assert(end > start);
-    const slots = [], downloads = [];
+    const slots = [], downloads = [], reads = [];
     let cursor = 0;
     const context = {
         FamilyBackup: Backup, window: { localStorage: storage },
@@ -191,15 +191,15 @@ function appHarness(storage, fileFailure = false, downloadFailure = false) {
         },
         useEffect() {},
         generateId: () => 'fixture-generated',
-        FileReader: class { readAsText(file) { if (fileFailure) this.onerror(); else this.onload({ target: { result: file.text } }); } },
+        FileReader: class { readAsText(file) { const finish = () => { if (fileFailure) this.onerror(); else this.onload({ target: { result: file.text } }); }; if (deferredReads) reads.push(finish); else finish(); } },
         Blob,
         URL: { createObjectURL(blob) { if (downloadFailure) throw new Error('Download unavailable'); downloads.push(blob); return 'blob:fixture'; }, revokeObjectURL() {} },
         document: { body: { appendChild() {} }, createElement: () => ({ click() {}, remove() {} }) },
         setTimeout() {},
     };
-    const expose = 'return { handleImport, confirmImport, downloadCurrentBackup, addIncome, setSkipBackup, setBackupConfirmed, pendingImport, notification, storageError, recoveryMode, getData: () => dataRef.current };';
+    const expose = 'return { handleImport, confirmImport, downloadCurrentBackup, addIncome, deleteSnapshot, beginRecovery, cancelRecovery, handleRecoverySource, confirmRecovery, setOriginalRecordConfirmed, pendingRecovery, setSkipBackup, setBackupConfirmed, pendingImport, notification, storageError, recoveryMode, getData: () => dataRef.current };';
     const renderApp = vm.runInNewContext('(function () {' + html.slice(start, end) + expose + '})', context);
-    return { render() { cursor = 0; return renderApp(); }, downloads };
+    return { render() { cursor = 0; return renderApp(); }, downloads, finishRead() { assert(reads.length); reads.shift()(); } };
 }
 const choose = (app, data) => app.handleImport({ target: { files: [{ text: typeof data === 'string' ? data : JSON.stringify(data) }], value: 'fixture' } });
 
@@ -429,8 +429,7 @@ test('an existing orphan snapshot is preserved on export; import of that export 
     const exported = JSON.parse(await ui.downloads[0].text());
     assert.deepEqual(exported.snapshots, original.snapshots);
     assert.equal(exported.snapshots[0].fundsData['fondo-prueba'].value, 120);
-    assert.equal(exported.tabla2EvolucionPatrimonial[0].cartera, 0);
-    assert.equal(exported.tabla2EvolucionPatrimonial[0].patrimonio, 50);
+    assert.equal(Object.hasOwn(exported, 'tabla2EvolucionPatrimonial'), false, 'No publicar resúmenes derivados incompletos como si fueran totales válidos');
     assert.match(ui.render().storageError, /necesitará revisión/);
     assert.throws(() => Backup.restore(storage, exported, original), /referencia/);
     assert.deepEqual(Backup.loadDataset(storage), original);
@@ -442,3 +441,139 @@ test('a newly created fund with the same name cannot silently replace a deleted 
     data.funds[0].id = 'identificador-nuevo';
     assert.throws(() => Backup.prepareRestore(data, Backup.emptyDataset()), /referencia/);
 });
+
+const selectRecoverySource = (app, data) => app.handleRecoverySource({ target: { files: [{ text: JSON.stringify(data) }], value: 'fixture' } });
+
+test('an orphan import is staged without changing anything and requires source, original-record and backup confirmations', () => {
+    const current = fixture(), target = clone(current); target.funds = []; target.incomes[0].amount = 999;
+    const storage = legacyStorage(current), ui = appHarness(storage);
+    choose(ui.render(), target);
+    assert.equal(ui.render().pendingRecovery.kind, 'import');
+    assert.deepEqual(ui.render().getData(), current);
+    selectRecoverySource(ui.render(), current);
+    assert(ui.render().pendingRecovery.prepared);
+    ui.render().confirmRecovery();
+    assert.deepEqual(storage.writes, []);
+    ui.render().setOriginalRecordConfirmed(true);
+    ui.render().confirmRecovery();
+    assert.deepEqual(storage.writes, []);
+    ui.render().setSkipBackup(true);
+    ui.render().confirmRecovery();
+    const expected = { ...target, funds: current.funds };
+    assert.deepEqual(Backup.loadDataset(storage), expected);
+    assert.deepEqual(ui.render().getData(), expected);
+    assert.equal(ui.render().pendingRecovery, null);
+    assert.equal(storage.writes.length, 1);
+});
+
+test('recovery of existing stored history changes the catalogue only', () => {
+    const original = fixture(), target = clone(original); target.funds = [];
+    const storage = legacyStorage(target), ui = appHarness(storage);
+    ui.render().beginRecovery(ui.render().getData());
+    selectRecoverySource(ui.render(), original);
+    ui.render().setOriginalRecordConfirmed(true);
+    ui.render().setSkipBackup(true);
+    ui.render().confirmRecovery();
+    assert.deepEqual(Backup.loadDataset(storage), original);
+    assert.deepEqual(ui.render().getData().snapshots, target.snapshots);
+});
+
+test('recovery storage failure preserves current memory and persisted history and permits retry', () => {
+    const original = fixture(), target = clone(original); target.funds = [];
+    const storage = legacyStorage(target), ui = appHarness(storage);
+    ui.render().beginRecovery(ui.render().getData());
+    selectRecoverySource(ui.render(), original);
+    ui.render().setOriginalRecordConfirmed(true);
+    ui.render().setSkipBackup(true);
+    storage.failWrite = true;
+    ui.render().confirmRecovery();
+    assert.deepEqual(ui.render().getData(), target);
+    assert.deepEqual(Backup.loadDataset(storage), target);
+    assert.match(ui.render().pendingRecovery.error, /No se ha guardado ningún cambio/);
+    storage.failWrite = false;
+    ui.render().confirmRecovery();
+    assert.deepEqual(Backup.loadDataset(storage), original);
+});
+
+test('concurrent changes block recovery rather than overwriting another session', () => {
+    const original = fixture(), target = clone(original); target.funds = [];
+    const storage = legacyStorage(target), ui = appHarness(storage);
+    ui.render().beginRecovery(ui.render().getData());
+    selectRecoverySource(ui.render(), original);
+    ui.render().setOriginalRecordConfirmed(true);
+    ui.render().setSkipBackup(true);
+    Backup.saveDataset(storage, original);
+    ui.render().confirmRecovery();
+    assert.match(ui.render().pendingRecovery.error, /almacenamiento ha cambiado/);
+    assert.deepEqual(ui.render().getData(), target);
+    assert.deepEqual(Backup.loadDataset(storage), original);
+});
+
+test('missing or conflicting donor files cannot produce a confirmable recovery', () => {
+    const original = fixture(), target = clone(original); target.funds = [];
+    const storage = legacyStorage(target), ui = appHarness(storage);
+    ui.render().beginRecovery(ui.render().getData());
+    selectRecoverySource(ui.render(), Backup.emptyDataset());
+    assert.equal(ui.render().pendingRecovery.prepared, null);
+    assert.match(ui.render().pendingRecovery.error, /registros originales/);
+    const conflicting = clone(original); conflicting.snapshots[0].fundsData.f1.value = 121;
+    selectRecoverySource(ui.render(), conflicting);
+    assert.equal(ui.render().pendingRecovery.prepared, null);
+    assert.match(ui.render().pendingRecovery.error, /discrepan/);
+    assert.deepEqual(storage.writes, []);
+});
+
+test('cancelled source reads cannot reopen recovery or apply stale results', () => {
+    const original = fixture(), target = clone(original); target.funds = [];
+    const storage = legacyStorage(target), ui = appHarness(storage, false, false, true);
+    ui.render().beginRecovery(ui.render().getData());
+    selectRecoverySource(ui.render(), original);
+    ui.render().cancelRecovery();
+    ui.finishRead();
+    assert.equal(ui.render().pendingRecovery, null);
+    assert.deepEqual(ui.render().getData(), target);
+    assert.deepEqual(storage.writes, []);
+});
+
+test('a recovery source read failure preserves the pending target and all stored data', () => {
+    const original = fixture(), target = clone(original); target.funds = [];
+    const storage = legacyStorage(target), ui = appHarness(storage, true);
+    ui.render().beginRecovery(ui.render().getData());
+    selectRecoverySource(ui.render(), original);
+    assert.equal(ui.render().pendingRecovery.prepared, null);
+    assert.match(ui.render().pendingRecovery.error, /No se pudo leer/);
+    assert.deepEqual(ui.render().getData(), target);
+    assert.deepEqual(storage.writes, []);
+});
+
+test('deleting the last zero observation cannot leave a formerly archived fund with a nonzero last value', () => {
+    const data = Backup.setFundArchived(clone(require('./fixtures/07-valor-cero.json')), 'fondo-prueba', true);
+    const storage = legacyStorage(data), ui = appHarness(storage);
+    assert.equal(ui.render().deleteSnapshot('foto-cero'), false);
+    assert.deepEqual(ui.render().getData(), data);
+    assert.deepEqual(storage.writes, []);
+    assert.match(ui.render().storageError, /archivado sin último valor cero/);
+});
+
+test('export and restore of explicit all-zero archived observations does not replace them with synthesized summaries', async () => {
+    const data = fixture();
+    data.funds[0].archived = true;
+    data.snapshots[0].fundsData.f1 = { ingreso: 0, value: 0 };
+    const storage = legacyStorage(data), ui = appHarness(storage);
+    ui.render().downloadCurrentBackup();
+    const exported = JSON.parse(await ui.downloads[0].text());
+    assert.deepEqual(Backup.prepareRestore(exported, Backup.emptyDataset()).data.snapshots, data.snapshots);
+});
+
+test('a contradictory sidecar summary cannot replace an explicitly zero archived photograph', () => {
+    const data = fixture();
+    data.funds[0].archived = true;
+    data.snapshots[0].fundsData.f1 = { ingreso: 0, value: 0 };
+    const input = { ...clone(data), tabla2EvolucionPatrimonial: [{ date: data.snapshots[0].date, cartera: 120 }] };
+    const storage = legacyStorage(data);
+    assert.throws(() => Backup.restore(storage, input, data), /contradice/);
+    assert.deepEqual(storage.writes, []);
+    assert.deepEqual(Backup.loadDataset(storage), data);
+});
+
+require('./fund-history.cases.cjs');

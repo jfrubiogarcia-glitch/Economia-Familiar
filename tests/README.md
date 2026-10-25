@@ -1,5 +1,10 @@
 # Pruebas de restauración JSON
 
+En la rama `fix/preserve-fund-history`, el mismo comando incluye también los
+casos de `fund-history.cases.cjs`: archivado y recuperación del catálogo.
+La [guía conjunta](VALIDACION-CONJUNTA.md) es el procedimiento de navegador
+para las dos mejoras. Véanse los [criterios y límites](ARCHIVADO-Y-RECUPERACION.md).
+
 Desde la raíz, con Node.js 18 o posterior y sin instalar dependencias:
 
 ```sh
@@ -49,6 +54,9 @@ cambios concurrentes durante la confirmación y descarga de la copia previa.
   La interfaz pide comprobarlo o elegir expresamente continuar sin copia.
 
 ## Comprobación manual pendiente en un navegador seguro
+
+Para la rama con archivado, utiliza la guía conjunta enlazada arriba. Las
+instrucciones siguientes corresponden a la PR #2 antes de añadir archivado.
 
 La [guía mínima con archivos preparados](VALIDACION-MANUAL.md) explica cómo
 usar un perfil Invitado y dos copias locales sin tocar datos reales. Incluye

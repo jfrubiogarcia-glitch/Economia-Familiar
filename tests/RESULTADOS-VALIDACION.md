@@ -1,5 +1,9 @@
 # Estado de validación funcional de la PR #2
 
+Este informe conserva la evidencia anterior al archivado. Para la rama conjunta,
+consulta [Archivado y recuperación](ARCHIVADO-Y-RECUPERACION.md) y su
+[validación funcional pendiente](VALIDACION-CONJUNTA.md).
+
 Fecha de comprobación: 25 de octubre de 2026.
 
 **La PR sigue en borrador. No se ha incorporado a main.** No se han usado datos

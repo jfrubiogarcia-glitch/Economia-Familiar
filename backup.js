@@ -1,4 +1,4 @@
-/* JSON validation and persistence only: financial calculations remain in index.html. */
+/* Validation, persistence and catalogue preservation. Financial formulas remain in index.html. */
 (function (root, factory) {
     const api = factory();
     if (typeof module === 'object' && module.exports) module.exports = api;
@@ -9,6 +9,7 @@
     const BLOCKS = ['incomes', 'expenses', 'funds', 'snapshots'];
     const STORAGE_KEY = 'eco_public_blank_v4_dataset';
     const LEGACY_KEYS = Object.fromEntries(BLOCKS.map(k => [k, `eco_public_blank_v4_${k}`]));
+    const FUND_IDENTITY = ['name', 'isin', 'type', 'start', 'gestora'];
     const SUMMARY_FIELDS = ['ingresoTotal', 'ing', 'rf', 'rv', 'cartera', 'patrimonio',
         'diffCartera', 'diffCarteraPct', 'diffPatrimonio', 'diffPatrimonioPct'];
     const has = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
@@ -75,6 +76,7 @@
                 ['name', 'type', 'gestora'].forEach(k => text(row[k], `${p}.${k}`));
                 date(row.start, `${p}.start`);
                 if (has(row, 'isin') && typeof row.isin !== 'string') fail(`${p}.isin`, 'se esperaba un texto.');
+                if (has(row, 'archived') && typeof row.archived !== 'boolean') fail(`${p}.archived`, 'se esperaba verdadero o falso.');
             } else {
                 date(row.date, `${p}.date`);
                 if (has(row, 'summaryOnly') && typeof row.summaryOnly !== 'boolean') fail(`${p}.summaryOnly`, 'se esperaba verdadero o falso.');
@@ -104,11 +106,14 @@
             data.snapshots.forEach((s, i) => Object.keys(s.fundsData || {}).forEach(id => {
                 if (!ids.has(id)) fail(`snapshots[${i + 1}].fundsData`, 'hay una referencia a un fondo inexistente.');
             }));
+            data.funds.forEach((f, i) => {
+                if (f.archived && !archiveEligibility(data, f.id).allowed) fail(`funds[${i + 1}].archived`, 'el último valor registrado debe ser cero.');
+            });
         }
         return data;
     }
 
-    function prepareRestore(input, current) {
+    function prepareRestore(input, current, { allowMissingReferences = false } = {}) {
         const data = typeof input === 'string' ? JSON.parse(input) : input;
         object(data, 'Archivo');
         const supplied = BLOCKS.filter(k => has(data, k));
@@ -123,7 +128,16 @@
 
         const candidate = Object.fromEntries(BLOCKS.map(k => [k, has(data, k) ? data[k] : current[k]]));
         if (hasTable && !has(data, 'snapshots')) candidate.snapshots = [];
-        validateDataset(candidate);
+        if (has(data, 'funds') && !has(data, 'snapshots') && !hasTable) {
+            current.funds.forEach(f => {
+                const next = data.funds.find(g => String(g.id) === String(f.id));
+                if (next && referencedFund(current, f.id) &&
+                    (next.id !== f.id || FUND_IDENTITY.some(k => next[k] !== f[k]))) {
+                    fail('funds', 'la copia parcial cambiaría los datos de un fondo vinculado a fotografías conservadas.');
+                }
+            });
+        }
+        validateDataset(candidate, !allowMissingReferences);
         // Clone before adding legacy summary rows: never mutate input or current data.
         const next = JSON.parse(JSON.stringify(candidate));
         if (hasTable) {
@@ -134,7 +148,14 @@
                     liquidity: row.patrimonio != null && row.cartera != null ? row.patrimonio - row.cartera : null,
                     fundsData: {}, summaryOnly: true
                 };
-                const hasOwnFundsData = existing.fundsData && Object.values(existing.fundsData).some(fd => fd.ingreso || fd.value);
+                // Explicit zero observations are real historical data as well.
+                const hasOwnFundsData = existing.fundsData && Object.keys(existing.fundsData).length > 0;
+                if (hasOwnFundsData && !existing.table2 && !existing.summary && Object.values(existing.fundsData).every(fd => fd.ingreso === 0 && fd.value === 0)) {
+                    const conflictingZero = ['ingresoTotal', 'rf', 'rv', 'cartera'].some(k => row[k] != null && row[k] !== 0);
+                    if (conflictingZero || (row.patrimonio != null && row.patrimonio !== existing.liquidity)) {
+                        fail('tabla2EvolucionPatrimonial', 'el resumen contradice una fotografía con valores cero explícitos; se necesita revisión.');
+                    }
+                }
                 if (!existing.table2 && !hasOwnFundsData) {
                     existing.table2 = Object.fromEntries(SUMMARY_FIELDS.filter(k => k !== 'ing').map(k => [k, row[k] ?? null]));
                     existing.summary = Object.fromEntries(['ingresoTotal', 'rf', 'rv', 'cartera', 'patrimonio'].map(k => [k, row[k] ?? null]));
@@ -143,8 +164,96 @@
             });
             next.snapshots = [...byDate.values()].sort((a, b) => b.date.localeCompare(a.date));
         }
-        validateDataset(next);
+        validateDataset(next, !allowMissingReferences);
         return { data: next, replaced: [...new Set([...supplied, ...(hasTable ? ['snapshots'] : [])])] };
+    }
+
+    function findOrphans(data) {
+        const known = new Set(data.funds.map(f => String(f.id))), missing = new Map();
+        data.snapshots.forEach(s => Object.keys(s.fundsData || {}).forEach(id => {
+            if (!known.has(id)) {
+                if (!missing.has(id)) missing.set(id, { id, dates: [] });
+                missing.get(id).dates.push(s.date);
+            }
+        }));
+        return [...missing.values()];
+    }
+    function lastFundRecord(data, id) {
+        return data.snapshots.filter(s => has(s.fundsData || {}, String(id)))
+            .sort((a, b) => b.date.localeCompare(a.date))[0] || null;
+    }
+    function archiveEligibility(data, id) {
+        const last = lastFundRecord(data, id);
+        const value = last?.fundsData[String(id)]?.value;
+        return { allowed: typeof value === 'number' && Number.isFinite(value) && value === 0,
+            date: last?.date || null, value: typeof value === 'number' && Number.isFinite(value) ? value : null };
+    }
+    function setFundArchived(data, id, archived) {
+        if (typeof archived !== 'boolean') fail('Archivado', 'estado no válido.');
+        if (!data.funds.some(f => String(f.id) === String(id))) fail('Archivado', 'el fondo no existe.');
+        if (archived && !archiveEligibility(data, id).allowed) fail('Archivado', 'solo se permite con último valor registrado cero; no se modifica ningún saldo.');
+        return { ...data, funds: data.funds.map(f => String(f.id) === String(id) ? { ...f, archived } : f) };
+    }
+    function referencedFund(data, id) {
+        return data.snapshots.some(s => has(s.fundsData || {}, String(id)));
+    }
+    function prepareSnapshotFunds(data, draft, editingId, targetDate) {
+        if (findOrphans(data).length) fail('Fotografía', 'recupera primero las referencias a fondos ausentes.');
+        const result = JSON.parse(JSON.stringify(draft));
+        const original = data.snapshots.find(s => s.id === editingId);
+        if (!original && data.snapshots.some(s => s.date === targetDate)) fail('Fotografía', 'la fecha ya existe; utiliza Editar para no sobrescribirla.');
+        data.funds.filter(f => f.archived).forEach(f => {
+            const id = String(f.id);
+            if (original) {
+                if (has(original.fundsData || {}, id)) {
+                    if (original.table2 || original.summary) fail('Fotografía', 'el registro archivado tiene un resumen guardado; necesita revisión explícita, no se eliminará ni recalculará desde este formulario.');
+                    if (targetDate !== original.date) fail('Fotografía', 'no cambies la fecha de una fotografía con fondos archivados.');
+                    result[id] = JSON.parse(JSON.stringify(original.fundsData[id]));
+                } else delete result[id];
+            } else {
+                const last = lastFundRecord(data, id), entry = result[id];
+                if (!last || !entry || entry.value !== 0 || entry.ingreso !== last.fundsData[id].ingreso || targetDate < last.date) {
+                    fail('Fotografía', 'faltan valores revisables del fondo archivado; no se completarán con ceros ni se trasladarán desde una fecha futura.');
+                }
+            }
+        });
+        return result;
+    }
+    function prepareFundRecovery(target, donorInput) {
+        validateDataset(target, false);
+        const missing = findOrphans(target);
+        if (!missing.length) fail('Recuperación', 'no hay referencias huérfanas.');
+        // Source files must be valid in their entirety, even though only their
+        // original catalogue records may be copied. No source photographs are restored.
+        const donor = prepareRestore(donorInput, emptyDataset()).data;
+        target.funds.forEach(f => {
+            const other = donor.funds.find(g => String(g.id) === String(f.id));
+            if (other && (other.id !== f.id || FUND_IDENTITY.some(k => f[k] !== other[k]))) fail('Recuperación', 'los catálogos discrepan sobre un fondo existente; se necesita revisión.');
+        });
+        const additions = missing.map(({ id }) => {
+            const original = donor.funds.find(f => String(f.id) === id);
+            if (!original) fail('Recuperación', 'la copia no contiene todos los registros originales ausentes.');
+            return JSON.parse(JSON.stringify(original));
+        });
+        const missingIds = new Set(missing.map(r => r.id));
+        target.snapshots.forEach(s => {
+            if (!Object.keys(s.fundsData || {}).some(id => missingIds.has(id))) return;
+            // A stored aggregate could already reflect the old deletion defect.
+            // Do not decide which historical representation is authoritative.
+            if (s.table2 || s.summary) fail('Recuperación', 'una fotografía huérfana contiene resúmenes guardados; requiere revisión, no se recalculará automáticamente.');
+            missingIds.forEach(id => {
+                const entry = s.fundsData?.[id], original = additions.find(f => String(f.id) === id);
+                if (entry && FUND_IDENTITY.some(k => has(entry, k) && entry[k] !== original[k])) fail('Recuperación', 'el registro original discrepa de los metadatos guardados en una fotografía.');
+            });
+            const prior = donor.snapshots.find(p => p.date === s.date);
+            if (prior) missingIds.forEach(id => {
+                const a = s.fundsData?.[id], b = prior.fundsData?.[id];
+                if (a && b && (a.ingreso !== b.ingreso || a.value !== b.value)) fail('Recuperación', 'las copias discrepan en una fotografía de la misma fecha; se necesita revisión.');
+            });
+        });
+        const data = { ...target, funds: [...target.funds, ...additions] };
+        validateDataset(data);
+        return { data, additions, missing };
     }
 
     function readStorageSnapshot(storage) {
@@ -178,5 +287,6 @@
     }
 
     return { BLOCKS, STORAGE_KEY, LEGACY_KEYS, emptyDataset, validateDataset, prepareRestore,
-        readStorageSnapshot, loadDataset, saveDataset, restore };
+        readStorageSnapshot, loadDataset, saveDataset, restore, findOrphans,
+        archiveEligibility, setFundArchived, referencedFund, prepareSnapshotFunds, prepareFundRecovery };
 }));

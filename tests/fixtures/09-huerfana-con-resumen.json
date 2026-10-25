@@ -1,0 +1,6 @@
+{
+  "incomes": [{ "id": "ingreso-huerfano", "date": "2026-10", "owner": "Juan", "concept": "NO DEBE IMPORTARSE SIN REVISION", "amount": 999 }],
+  "expenses": [],
+  "funds": [],
+  "snapshots": [{ "id": "foto-prueba", "date": "2026-10-01", "liquidity": 50, "fundsData": { "fondo-prueba": { "ingreso": 100, "value": 120 } }, "table2": { "cartera": 0, "patrimonio": 50 } }]
+}
