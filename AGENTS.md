@@ -5,7 +5,7 @@ Si existe un conflicto entre instrucciones aplicables, indícalo antes de realiz
 
 ## Contexto del proyecto
 
-- La interfaz y los cálculos financieros están en `index.html`; la validación y persistencia de las copias JSON están en `backup.js`.
+- La interfaz y los cálculos financieros anteriores están en `index.html`; el balance mensual se calcula en `monthly-balance.js`; la validación y persistencia de las copias JSON están en `backup.js`.
 - Utiliza localStorage e importación/exportación JSON. No dispone de backend, autenticación ni sincronización remota.
 - Las bibliotecas se cargan desde CDN. Actualmente no hay manifiesto de dependencias ni proceso de compilación. Las pruebas de restauración utilizan Node.js sin dependencias adicionales.
 - Comprueba estas características antes de apoyarte en ellas: actualiza estas instrucciones cuando cambie la arquitectura.
@@ -53,6 +53,15 @@ Evita refactorizaciones amplias y nuevas dependencias cuando una solución peque
 - Mantén coherencia entre pantalla, gráficas, almacenamiento y exportación. Evita mantener fórmulas equivalentes en varios lugares.
 - Si el significado financiero de un cambio no está claro, acláralo antes de modificar fórmulas o reinterpretar históricos.
 - No modifiques unilateralmente las categorías de activos, los criterios de clasificación, las fórmulas de rentabilidad ni la interpretación de los indicadores financieros. Cuando detectes una posible mejora, explica el problema, propone alternativas y solicita mi aprobación antes de cambiar el criterio.
+
+## Balance mensual familiar
+
+- Aplica criterio de cobro/cargo y dos importes manuales: ahorro neto nuevo en fondos/planes y en liquidez. Admite retiradas netas negativas; no deduzcas aportaciones de revalorizaciones ni cuentes traspasos internos como ahorro nuevo.
+- Ahorro total = fondos + liquidez; gasto total estimado = ingresos incluidos − ahorro total; no desglosado estimado = gasto estimado − gastos registrados incluidos. No modifiques las fórmulas anteriores ni las clasificaciones de activos.
+- Identifica explícitamente los movimientos en una revisión exclusiva del balance, sin modificar apuntes de Ingresos o Gastos. No excluyas un apunte solo por llamarse Ahorro. Excluye ahorro real y transferencias de los gastos y retiradas/transferencias de los ingresos únicamente cuando el usuario los identifique. Las retiradas para consumo se contemplan una sola vez en los importes netos; no vuelvas a sumarlas como ingresos ni ajustes automáticamente esos importes.
+- Registrado, revisado y estimado son conceptos diferentes. No generes gastos confirmados a partir de una diferencia. Distingue cero de dato desconocido, muestra advertencias sin recortar resultados negativos y exige revisión de movimientos pendientes antes de cerrar el mes.
+- Reabre la revisión efectiva si cambian ingresos, gastos, decisiones o ahorro del mes. Los acumulados y la media usan los mismos meses revisados; muestra su número y no dividas siempre entre doce.
+- Incluye `monthlyBalances` y sus decisiones en las copias. Si falta en una copia antigua, conserva los balances existentes; si aparece vacío, vacíalos explícitamente. Conserva sus importes cuando cambien las fuentes, marcando su revisión como pendiente. Las versiones anteriores no son editores seguros de estos datos.
 
 ## Pruebas y entrega
 

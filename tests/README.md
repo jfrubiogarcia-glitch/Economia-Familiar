@@ -1,14 +1,20 @@
 # Pruebas de restauración JSON
 
-La [candidata de publicación conjunta](CANDIDATA-PUBLICACION.md) reúne las dos
-mejoras en la PR #3 con base main. Incluye el resultado de preparación y cómo
-se cargarán los datos actuales, sin haber ejecutado la publicación.
+La rama `feat/monthly-family-balance` añade el [Balance mensual familiar](BALANCE-MENSUAL.md).
+El comando habitual incluye `monthly-balance.cases.cjs`. Los resultados manuales
+anteriores corresponden a restauración/archivado; esta pestaña nueva aún requiere
+su propia prueba de navegador. Al publicarla en el futuro, deben acompañar al HTML
+tanto `backup.js` como `monthly-balance.js`, de la misma versión.
 
-**Estado actual:** el usuario ha comunicado validación manual parcial
+La [candidata de publicación conjunta](CANDIDATA-PUBLICACION.md) documenta la
+preparación anterior de restauración y archivado. Ambas mejoras ya están en
+la base main `758fa87` de esta rama; esta nueva función se revisa por separado.
+
+**Validación anterior:** el usuario comunicó validación manual parcial
 satisfactoria en Chrome Invitado. Consulta los [resultados y límites](VALIDACION-CHROME-INVITADO.md)
 y el [plan de publicación sin versión intermedia](PUBLICACION-SEGURA.md).
-Las dos PR siguen en borrador; iPhone físico y los casos no confirmados no
-se consideran verificados.
+Esos documentos conservan el estado de aquella revisión; iPhone físico y los
+casos no confirmados no se consideran verificados.
 
 En la rama `fix/preserve-fund-history`, el mismo comando incluye también los
 casos de `fund-history.cases.cjs`: archivado y recuperación del catálogo.

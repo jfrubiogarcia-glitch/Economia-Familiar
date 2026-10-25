@@ -1,0 +1,14 @@
+{
+  "incomes": [
+    { "id": "salario-ficticio", "date": "2026-10", "owner": "Persona ficticia", "concept": "Ingreso ficticio", "amount": 3000 },
+    { "id": "retirada-ficticia", "date": "2026-10", "owner": "Persona ficticia", "concept": "Retirada ficticia", "amount": 200 },
+    { "id": "traspaso-entrada", "date": "2026-10", "owner": "Persona ficticia", "concept": "Movimiento propio", "amount": 100 }
+  ],
+  "expenses": [
+    { "id": "gasto-ficticio", "date": "2026-10", "concept": "Gasto ficticio", "amount": 1800 },
+    { "id": "ahorro-ficticio", "date": "2026-10", "concept": "Ahorro", "amount": 400 },
+    { "id": "traspaso-salida", "date": "2026-10", "concept": "Movimiento propio", "amount": 100 }
+  ],
+  "funds": [],
+  "snapshots": []
+}

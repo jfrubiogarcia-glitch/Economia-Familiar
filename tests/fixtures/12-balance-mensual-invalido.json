@@ -1,0 +1,5 @@
+{
+  "backupVersion": 2,
+  "incomes": [{ "id": "no-importar", "date": "2026-10", "owner": "Persona ficticia", "concept": "No debe importarse", "amount": 999 }],
+  "monthlyBalances": [{ "month": "2026-10", "fundSavings": "400", "liquiditySavings": 100, "entries": [], "reviewedAgainst": null, "note": "Archivo ficticio deliberadamente inválido" }]
+}

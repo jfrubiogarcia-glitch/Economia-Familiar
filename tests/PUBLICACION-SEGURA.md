@@ -1,5 +1,10 @@
 # Preparación de integración y publicación
 
+Nota de la rama de Balance mensual: este documento conserva el plan de las
+mejoras anteriores. La nueva función es otra PR sin publicar. Requiere desplegar
+también `monthly-balance.js` junto con `backup.js` e `index.html`; véase su
+[validación y compatibilidad](BALANCE-MENSUAL.md).
+
 **Integración conjunta preparada, sin ejecutar la publicación.** Con autorización
 del usuario se ha cambiado la base de #3 a main para que incluya ambas mejoras.
 Las dos PR siguen en borrador. No se ha fusionado ninguna ni modificado main.
