@@ -1,8 +1,10 @@
 # Estado de validación funcional de la PR #2
 
 Este informe conserva la evidencia anterior al archivado. Para la rama conjunta,
-consulta [Archivado y recuperación](ARCHIVADO-Y-RECUPERACION.md) y su
-[validación funcional pendiente](VALIDACION-CONJUNTA.md).
+consulta [Archivado y recuperación](ARCHIVADO-Y-RECUPERACION.md) y los
+[resultados manuales comunicados por el usuario](VALIDACION-CHROME-INVITADO.md).
+Los apartados siguientes conservan el estado inicial, no sustituyen ese informe
+actualizado ni significan que las pruebas comunicadas sigan pendientes.
 
 Fecha de comprobación: 25 de octubre de 2026.
 
@@ -78,7 +80,7 @@ originales desde una copia fiable cuando existan. No deben inventarse fondos,
 identificadores, categorías ni importes. No se recomienda cerrar este riesgo
 como resuelto por la validación JSON.
 
-## No comprobado en un navegador real
+## Estado inicial: no comprobado por Codex en un navegador real
 
 No hay Firefox ni WebKit instalados ni una herramienta de navegador remoto
 disponible. Chromium aborta con su sandbox activado por la configuración del
@@ -86,7 +88,8 @@ ejecutable `chrome-sandbox`. El mecanismo alternativo de espacios de usuario
 tampoco está disponible en esta máquina. No se han desactivado protecciones,
 instalado certificados ni pedido nuevos permisos de red.
 
-Siguen pendientes:
+En el informe inicial figuraban como pendientes los casos siguientes. Su estado
+actual debe consultarse en el informe de Chrome Invitado enlazado arriba:
 
 - Importación/exportación mediante el selector y las descargas reales.
 - Confirmación, cancelación, foco y cierre del diálogo.
@@ -99,7 +102,12 @@ La alternativa mínima es usar un perfil Invitado en el navegador del usuario,
 dos archivos ZIP del código y el servidor local de la guía. No necesita
 cuentas, alojar una web pública ni enviar datos a servicios de pruebas externos.
 
-## Para cerrar la fase
+## Pasos propuestos inicialmente (histórico)
+
+Estos pasos documentan la propuesta previa a la implementación del archivado y
+al informe manual. Los criterios de archivado/recuperación ya se aprobaron y
+están implementados en #3. Para las acciones actuales debe seguirse el
+[plan de publicación](PUBLICACION-SEGURA.md), que tiene en cuenta GitHub Pages.
 
 1. Ejecutar la [guía manual](VALIDACION-MANUAL.md) con los archivos ficticios.
 2. Revisar los resultados e investigar los fallos que aparezcan. Un resultado

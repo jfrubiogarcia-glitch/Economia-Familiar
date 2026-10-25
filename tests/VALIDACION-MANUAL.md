@@ -1,6 +1,9 @@
 # Validación funcional de la PR #2, solo con datos ficticios
 
 **Estado: procedimiento preparado, no ejecutado en un navegador real por Codex.**
+El usuario ha comunicado después resultados parciales satisfactorios en Chrome
+Invitado. Su alcance está en el [informe actualizado](VALIDACION-CHROME-INVITADO.md).
+No se da por ejecutada íntegramente esta guía.
 Las pruebas automatizadas no comprueban las descargas reales, la presentación,
 el foco ni el almacenamiento del navegador. Esta guía permite completar esas
 comprobaciones sin utilizar el perfil ni los datos de la aplicación habitual.

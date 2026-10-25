@@ -121,11 +121,16 @@ reemplacen por resúmenes sintetizados y que un resumen contradictorio se rechac
 
 También se comprueban la sintaxis de JavaScript, la compilación completa del JSX
 y la identidad de los bloques de fórmulas frente a la base de la PR #2.
-La validación en un navegador real sigue pendiente: el sandbox de Chromium
-continúa bloqueado y no se han desactivado protecciones ni cambiado el entorno.
+El usuario ha comunicado resultados satisfactorios de validación parcial en
+Chrome Invitado, incluyendo archivado, reactivación, recuperación y recarga.
+Los [resultados y límites comunicados](VALIDACION-CHROME-INVITADO.md) distinguen
+esa evidencia de las pruebas automatizadas. Codex no ejecutó el navegador:
+el sandbox de Chromium continúa bloqueado y no se han desactivado protecciones
+ni cambiado el entorno. iPhone físico y los casos no confirmados siguen pendientes.
 
 La [validación conjunta](VALIDACION-CONJUNTA.md) utiliza esta rama que contiene
-ambas mejoras. Las dos PR permanecerán en borrador hasta revisar los resultados.
-Solo con aprobación del usuario se integraría primero la PR #2 y luego esta,
-retargeteada a main. No se debe desplegar entretanto la PR #2 como versión
-cotidiana para editar datos archivados.
+ambas mejoras. Las dos PR siguen en borrador por instrucción del usuario.
+GitHub Pages publica desde main, por lo que se propone revisar #2 y después #3,
+pero llevar ambas mejoras a main en una única actualización pública. El
+[plan de publicación](PUBLICACION-SEGURA.md) detalla las alternativas y las
+autorizaciones pendientes. No desplegar #2 aislada para editar datos archivados.

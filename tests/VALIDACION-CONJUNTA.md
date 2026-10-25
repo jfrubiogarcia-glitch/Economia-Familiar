@@ -1,8 +1,11 @@
 # Una validación funcional para restauración segura y archivado
 
-**Pendiente de ejecutar en un navegador real.** Esta rama contiene la PR #2
-y el archivado/recuperación aprobados. No es necesario probar dos mejoras en
-instalaciones distintas. Ninguna PR debe incorporarse a main por seguir esta guía.
+**Validación manual parcial comunicada por el usuario en Chrome Invitado.**
+Consulta los [resultados confirmados y pendientes](VALIDACION-CHROME-INVITADO.md).
+No se da por ejecutada toda esta guía ni probado un iPhone físico. Esta rama
+contiene la PR #2 y el archivado/recuperación aprobados. No es necesario probar
+dos mejoras en instalaciones distintas. Ninguna PR debe incorporarse a main
+por seguir esta guía.
 
 ## Preparación aislada
 
@@ -136,7 +139,8 @@ No vuelvas a editar datos archivados desde la anterior ni desde la PR #2 aislada
 ignoran el significado de la marca y permiten eliminación. Tampoco hay sincronización
 entre las claves antiguas y la nueva; cambiar de código no revierte datos fielmente.
 
-Tras revisar pruebas y riesgos, se propone aprobar la PR #2 y después esta PR,
-cambiando su base a main cuando corresponda, sin utilizar la versión intermedia
-para editar datos archivados. Hasta recibir aprobación explícita, ambas deben
-seguir en borrador y sin incorporar cambios a main.
+El orden de revisión sigue siendo PR #2 y después PR #3. Como GitHub Pages
+publica desde main, la recomendación actual es una única actualización pública
+con ambas mejoras, evitando publicar la versión intermedia. Consulta el
+[plan de integración y publicación](PUBLICACION-SEGURA.md). Hasta recibir
+aprobación explícita, ambas siguen en borrador y sin incorporar cambios a main.

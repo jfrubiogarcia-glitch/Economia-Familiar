@@ -43,6 +43,10 @@ Evita refactorizaciones amplias y nuevas dependencias cuando una solución peque
 
 - Eliminar, archivar o editar un fondo no debe cambiar silenciosamente los importes ni la clasificación de períodos anteriores.
 - Conserva las referencias necesarias para interpretar las fotografías históricas, incluso cuando un fondo deje de estar activo.
+- Archiva fondos conservando el registro completo y su identificador; no los elimines del catálogo histórico. Solo se permite archivar cuando su último valor explícitamente registrado es exactamente cero. Saldo distinto de cero, desconocido o ausencia de valoraciones bloquean la acción, sin inventar datos.
+- Los fondos archivados se separan de los activos visibles, pero siguen presentes en los cálculos históricos. Archivar o reactivar no registra una venta, retirada o transferencia ni modifica fotografías. No borres entradas archivadas al editar una fotografía.
+- Recupera referencias huérfanas únicamente desde registros originales completos, con el mismo identificador, sin conflictos y tras confirmación del usuario y opción de copia previa. Valida íntegramente el origen y el destino; añade solo el catálogo ausente, sin sustituir fotografías, importes, fechas o clasificaciones por los del origen.
+- Si faltan registros originales, hay discrepancias o los resúmenes guardados necesitan revisión, conserva las copias y solicita intervención. No emparejes por nombre, inventes identificadores ni recalcules históricos para hacer pasar una recuperación.
 - Distingue aportaciones, retiradas, variaciones de valor y rentabilidad. No presentes variación patrimonial como ganancia de inversión.
 - Documenta las fórmulas, sus supuestos y las reglas de redondeo.
 - Distingue cero de dato desconocido y de ausencia de referencia.

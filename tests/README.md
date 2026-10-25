@@ -1,5 +1,11 @@
 # Pruebas de restauración JSON
 
+**Estado actual:** el usuario ha comunicado validación manual parcial
+satisfactoria en Chrome Invitado. Consulta los [resultados y límites](VALIDACION-CHROME-INVITADO.md)
+y el [plan de publicación sin versión intermedia](PUBLICACION-SEGURA.md).
+Las dos PR siguen en borrador; iPhone físico y los casos no confirmados no
+se consideran verificados.
+
 En la rama `fix/preserve-fund-history`, el mismo comando incluye también los
 casos de `fund-history.cases.cjs`: archivado y recuperación del catálogo.
 La [guía conjunta](VALIDACION-CONJUNTA.md) es el procedimiento de navegador
