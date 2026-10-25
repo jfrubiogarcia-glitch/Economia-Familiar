@@ -13,6 +13,7 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <!-- Chart.js para gráficas -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="./backup.js"></script>
     
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; background-color: #f3f4f6; }
@@ -77,26 +78,6 @@
                 }} />;
         };
 
-        const loadSafe = (key, defaultVal) => {
-            try { const item = localStorage.getItem(key); return item ? JSON.parse(item) : defaultVal; }
-            catch(e) { return defaultVal; }
-        };
-        const saveSafe = (key, value) => {
-            try { localStorage.setItem(key, JSON.stringify(value)); }
-            catch(e) { console.error("Error guardando en LocalStorage", e); }
-        };
-
-        const INITIAL_FUNDS = [];
-
-        const INITIAL_INCOMES = [];
-
-        const INITIAL_EXPENSES = [];
-
-        const INITIAL_SNAPSHOTS = [];
-
-        // This public version starts clean and uses its own storage namespace.
-        const PUBLIC_STORAGE = { incomes: 'eco_public_blank_v4_incomes', expenses: 'eco_public_blank_v4_expenses', snapshots: 'eco_public_blank_v4_snapshots', funds: 'eco_public_blank_v4_funds' };
-
         const LINE_CHART_OPTIONS = { elements: { line: { tension: 0.3, borderWidth: 3 } } };
 
         const SimpleChart = ({ data, type = 'line', options = {} }) => {
@@ -146,8 +127,8 @@
         };
 
         const Notification = ({ message, onClose }) => {
+            useEffect(() => { if (!message) return; const timer = setTimeout(onClose, 3000); return () => clearTimeout(timer); }, [message, onClose]);
             if (!message) return null;
-            useEffect(() => { const timer = setTimeout(onClose, 3000); return () => clearTimeout(timer); }, [message, onClose]);
             return (
                 <div className="fixed bottom-4 right-4 bg-gray-900 text-white px-6 py-3 rounded-lg shadow-xl z-50 flex items-center gap-3 fade-in">
                     <span>✅</span> <span className="font-medium">{message}</span>
@@ -307,11 +288,11 @@
                 const fullDate = `${selectedYearInput}-${selectedMonthInput}`;
 
                 if (editingId) {
-                    updateIncome({ id: editingId, date: fullDate, owner, concept: finalConcept, amount: parseAmount(amount) });
+                    if (updateIncome({ id: editingId, date: fullDate, owner, concept: finalConcept, amount: parseAmount(amount) }) === false) return;
                     showMessage("Ingreso actualizado correctamente");
                     setEditingId(null);
                 } else {
-                    addIncome({ id: generateId(), date: fullDate, owner, concept: finalConcept, amount: parseAmount(amount) });
+                    if (addIncome({ id: generateId(), date: fullDate, owner, concept: finalConcept, amount: parseAmount(amount) }) === false) return;
                     showMessage("Ingreso añadido correctamente");
                 }
 
@@ -618,7 +599,7 @@
                                             <div className="flex items-center gap-3">
                                                 <span className="font-medium text-green-600">{formatCurrency(i.amount)}</span>
                                                 <button onClick={()=>handleStartEdit(i)} className="px-2 py-1 bg-amber-50 text-amber-700 rounded hover:bg-amber-100 text-xs font-bold">Editar</button>
-                                                <button onClick={()=>{deleteIncome(i.id); showMessage("Ingreso eliminado");}} className="px-2 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100 text-xs font-bold">Borrar</button>
+                                                <button onClick={()=>{if (deleteIncome(i.id) !== false) showMessage("Ingreso eliminado");}} className="px-2 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100 text-xs font-bold">Borrar</button>
                                             </div>
                                         </li>
                                     ))}
@@ -708,11 +689,11 @@
                 const fullDate = `${selectedYearInput}-${selectedMonthInput}`;
 
                 if (editingId) {
-                    updateExpense({ id: editingId, date: fullDate, concept: finalConcept, amount: parseAmount(amount) });
+                    if (updateExpense({ id: editingId, date: fullDate, concept: finalConcept, amount: parseAmount(amount) }) === false) return;
                     showMessage("Gasto actualizado correctamente");
                     setEditingId(null);
                 } else {
-                    addExpense({ id: generateId(), date: fullDate, concept: finalConcept, amount: parseAmount(amount) });
+                    if (addExpense({ id: generateId(), date: fullDate, concept: finalConcept, amount: parseAmount(amount) }) === false) return;
                     showMessage("Gasto/Ahorro añadido correctamente");
                 }
 
@@ -1020,7 +1001,7 @@
                                             <div className="flex items-center gap-3">
                                                 <span className="font-medium text-red-600">{formatCurrency(e.amount)}</span>
                                                 <button onClick={()=>handleStartEdit(e)} className="px-2 py-1 bg-amber-50 text-amber-700 rounded hover:bg-amber-100 text-xs font-bold">Editar</button>
-                                                <button onClick={()=>{deleteExpense(e.id); showMessage("Gasto eliminado");}} className="px-2 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100 text-xs font-bold">Borrar</button>
+                                                <button onClick={()=>{if (deleteExpense(e.id) !== false) showMessage("Gasto eliminado");}} className="px-2 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100 text-xs font-bold">Borrar</button>
                                             </div>
                                         </li>
                                     ))}
@@ -1086,11 +1067,11 @@
                 });
                 const newSnap = { id: editingSnapId || generateId(), date: snapDate, liquidity: parseAmount(snapLiquidity) || 0, fundsData: parsedFundsData };
                 if (editingSnapId) {
-                    updateSnapshot(newSnap);
+                    if (updateSnapshot(newSnap) === false) return;
                     showMessage("Fotografía actualizada correctamente");
                     setEditingSnapId(null);
                 } else {
-                    addSnapshot(newSnap);
+                    if (addSnapshot(newSnap) === false) return;
                     showMessage("Fotografía guardada correctamente");
                 }
             };
@@ -1120,11 +1101,11 @@
                 if (!fundName.trim()) return;
                 if (editingFund) {
                     const updated = funds.map(f => f.id === editingFund.id ? { ...f, name: fundName, isin: fundIsin, start: fundStart, type: fundType, gestora: fundGestora } : f);
-                    setFunds(updated);
+                    if (setFunds(updated) === false) return;
                     showMessage("Fondo actualizado con éxito");
                 } else {
                     const newF = { id: generateId(), name: fundName, isin: fundIsin || 'N/A', start: fundStart, type: fundType, gestora: fundGestora };
-                    setFunds([...funds, newF]);
+                    if (setFunds([...funds, newF]) === false) return;
                     showMessage("Nuevo fondo añadido");
                 }
                 setShowFundModal(false);
@@ -1132,7 +1113,7 @@
 
             const handleDeleteFund = (id) => {
                 if (confirm("¿Estás seguro de eliminar este fondo?")) {
-                    setFunds(funds.filter(f => f.id !== id));
+                    if (setFunds(funds.filter(f => f.id !== id)) === false) return;
                     showMessage("Fondo eliminado");
                 }
             };
@@ -1252,7 +1233,7 @@
                 const original = snapshots.find(s => s.id === manualDraft.id);
                 const entry = { ...original, id: manualDraft.id || generateId(), date: manualDraft.date,
                     liquidity: parseAmount(manualDraft.liquidity), table2, summaryOnly: true };
-                if (manualDraft.id) updateSnapshot(entry); else addSnapshot(entry);
+                if ((manualDraft.id ? updateSnapshot(entry) : addSnapshot(entry)) === false) return;
                 setManualDraft(null); showMessage('Registro de la tabla 2 guardado');
             };
 
@@ -1523,7 +1504,7 @@
                                                         window.scrollTo({ top: 0, behavior: 'smooth' });
                                                         showMessage("Cargado en el formulario superior para editar");
                                                     }} className="px-1.5 py-1 bg-amber-50 text-amber-700 rounded hover:bg-amber-100 text-[10px] font-bold">Editar</button>
-                                                    <button onClick={()=>{deleteSnapshot(row.id); showMessage("Registro eliminado");}} className="text-red-400 hover:text-red-600 font-bold text-xs bg-red-50 p-1 rounded">Borrar</button>
+                                                    <button onClick={()=>{if (deleteSnapshot(row.id) !== false) showMessage("Registro eliminado");}} className="text-red-400 hover:text-red-600 font-bold text-xs bg-red-50 p-1 rounded">Borrar</button>
                                                 </td>
                                             </tr>
                                         ))
@@ -1583,15 +1564,47 @@
             const [activeTab, setActiveTab] = useState('ingresos');
             const [notification, setNotification] = useState('');
             
-            const [incomes, setIncomes] = useState(() => loadSafe(PUBLIC_STORAGE.incomes, INITIAL_INCOMES));
-            const [expenses, setExpenses] = useState(() => loadSafe(PUBLIC_STORAGE.expenses, INITIAL_EXPENSES));
-            const [snapshots, setSnapshots] = useState(() => loadSafe(PUBLIC_STORAGE.snapshots, INITIAL_SNAPSHOTS));
-            const [funds, setFunds] = useState(() => loadSafe(PUBLIC_STORAGE.funds, INITIAL_FUNDS));
+            const [initial] = useState(() => {
+                try { return { data: FamilyBackup.loadDataset(window.localStorage), error: '' }; }
+                catch (error) { return { data: FamilyBackup.emptyDataset(), error: 'No se han podido leer los datos guardados. No se han sobrescrito. Descarga el almacenamiento original antes de restaurar una copia válida.' }; }
+            });
+            const [data, setData] = useState(initial.data);
+            const dataRef = useRef(data);
+            const [storageError, setStorageError] = useState(initial.error);
+            const [recoveryMode, setRecoveryMode] = useState(Boolean(initial.error));
+            const [pendingImport, setPendingImport] = useState(null);
+            const [readingImport, setReadingImport] = useState(false);
+            const [backupRequested, setBackupRequested] = useState(false);
+            const [backupConfirmed, setBackupConfirmed] = useState(false);
+            const [skipBackup, setSkipBackup] = useState(false);
+            const importDialogRef = useRef(null);
+            const { incomes, expenses, snapshots, funds } = data;
+            useEffect(() => {
+                const dialog = importDialogRef.current;
+                if (pendingImport && !dialog.open) dialog.showModal();
+                else if (!pendingImport && dialog.open) dialog.close();
+            }, [pendingImport]);
 
-            useEffect(() => { saveSafe(PUBLIC_STORAGE.incomes, incomes); }, [incomes]);
-            useEffect(() => { saveSafe(PUBLIC_STORAGE.expenses, expenses); }, [expenses]);
-            useEffect(() => { saveSafe(PUBLIC_STORAGE.snapshots, snapshots); }, [snapshots]);
-            useEffect(() => { saveSafe(PUBLIC_STORAGE.funds, funds); }, [funds]);
+            const commitData = (next) => {
+                if (recoveryMode) return false;
+                try {
+                    FamilyBackup.saveDataset(window.localStorage, next);
+                } catch (error) {
+                    setNotification('');
+                    setStorageError('No se pudo guardar: comprueba el espacio disponible y los permisos de almacenamiento. Los datos anteriores se conservan; el cambio no se ha aplicado.');
+                    return false;
+                }
+                dataRef.current = next;
+                setData(next);
+                setStorageError('');
+                return true;
+            };
+            const updateBlock = (key, update) => commitData({ ...dataRef.current,
+                [key]: typeof update === 'function' ? update(dataRef.current[key]) : update });
+            const setIncomes = update => updateBlock('incomes', update);
+            const setExpenses = update => updateBlock('expenses', update);
+            const setFunds = update => updateBlock('funds', update);
+            const setSnapshots = update => updateBlock('snapshots', update);
 
             const addIncome = (inc) => setIncomes(prev => [...prev, inc].sort((a,b)=>b.date.localeCompare(a.date)));
             const updateIncome = (updatedInc) => setIncomes(prev => prev.map(i => i.id === updatedInc.id ? updatedInc : i).sort((a,b)=>b.date.localeCompare(a.date)));
@@ -1602,7 +1615,7 @@
             const deleteExpense = (id) => setExpenses(prev => prev.filter(e => e.id !== id));
             
             const addSnapshot = (snap) => {
-                setSnapshots(prev => {
+                return setSnapshots(prev => {
                     const exists = prev.findIndex(s => s.date === snap.date);
                     let newArr = [...prev];
                     if (exists >= 0) newArr[exists] = snap; else newArr.push(snap);
@@ -1610,7 +1623,7 @@
                 });
             };
             const updateSnapshot = (updatedSnap) => {
-                setSnapshots(prev => prev.map(s => s.id === updatedSnap.id ? updatedSnap : s).sort((a,b)=>b.date.localeCompare(a.date)));
+                return setSnapshots(prev => prev.map(s => s.id === updatedSnap.id ? updatedSnap : s).sort((a,b)=>b.date.localeCompare(a.date)));
             };
             const deleteSnapshot = (id) => setSnapshots(prev => prev.filter(s => s.id !== id));
 
@@ -1661,97 +1674,87 @@
                     };
                 });
                 const data = { incomes, expenses, snapshots, funds, tabla2EvolucionPatrimonial };
-                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = `CopiaSeguridad_EconomiaFamiliar.json`;
-                a.click();
-                setNotification("Copia de seguridad descargada. Guárdala en un lugar seguro.");
+                return downloadJSON(data, 'CopiaSeguridad_EconomiaFamiliar.json');
+            };
+
+            const downloadJSON = (value, filename) => {
+                try {
+                    const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    try { a.click(); } finally { a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
+                    setNotification('Descarga solicitada. Comprueba que el archivo se ha guardado antes de continuar.');
+                    return true;
+                } catch (error) {
+                    setNotification('❌ No se pudo preparar la descarga. No se ha restaurado ningún dato.');
+                    return false;
+                }
+            };
+            const downloadCurrentBackup = () => {
+                let requested;
+                if (recoveryMode) {
+                    try {
+                        requested = downloadJSON({ rawStorage: FamilyBackup.readStorageSnapshot(window.localStorage) }, 'Recuperacion_Almacenamiento_Original.json');
+                    } catch (error) {
+                        setStorageError('No se puede acceder al almacenamiento original. No se ha modificado ningún dato. Revisa los permisos del navegador antes de continuar.');
+                        return false;
+                    }
+                } else {
+                    try { FamilyBackup.validateDataset(dataRef.current); }
+                    catch (error) {
+                        setStorageError('Los datos actuales contienen inconsistencias. La descarga conserva los registros originales, pero necesitará revisión antes de poder restaurarse. No se ha reparado ni eliminado ningún registro.');
+                    }
+                    requested = handleExport();
+                }
+                if (requested) setBackupRequested(true);
+                return requested;
             };
 
             const handleImport = (e) => {
                 const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    try {
-                        const data = JSON.parse(event.target.result);
-                        if (typeof data !== 'object' || data === null) {
-                            throw new Error('El archivo no contiene un objeto JSON válido.');
-                        }
-
-                        // Solo se restaura cada bloque si viene en el formato esperado (array),
-                        // así un campo ausente o corrupto no rompe el resto de la importación.
-                        let imported = 0;
-                        if (Array.isArray(data.incomes)) { setIncomes(data.incomes); imported++; }
-                        if (Array.isArray(data.expenses)) { setExpenses(data.expenses); imported++; }
-                        if (Array.isArray(data.funds)) { setFunds(data.funds); imported++; }
-
-                        // Tabla 2 puede venir como bloque explícito o dentro de snapshots.
-                        // Si existe el bloque explícito, lo usamos para garantizar que no
-                        // se pierda ningún registro histórico.
-                        let importedSnapshots = Array.isArray(data.snapshots) ? data.snapshots : [];
-                        if (Array.isArray(data.tabla2EvolucionPatrimonial)) {
-                            const byDate = new Map(importedSnapshots.map(s => [s.date, s]));
-                            data.tabla2EvolucionPatrimonial.forEach(row => {
-                                const existing = byDate.get(row.date) || {
-                                    id: `snap_${row.date}`,
-                                    date: row.date,
-                                    liquidity: row.patrimonio != null && row.cartera != null
-                                        ? row.patrimonio - row.cartera : null,
-                                    fundsData: {},
-                                    summaryOnly: true
-                                };
-                                const hasOwnFundsData = existing.fundsData && Object.values(existing.fundsData).some(fd => (fd?.ingreso || fd?.value));
-                                const rowHasRealData = row.ingresoTotal != null || row.rf != null || row.rv != null || row.cartera != null || row.patrimonio != null;
-                                // Si la fotografía ya trae su propio desglose por fondo (fundsData) y esta fila
-                                // de Tabla 2 no aporta datos (todo null, típico de una actualización recién
-                                // guardada y aún no recalculada), no la pisamos: dejamos que la app calcule
-                                // los totales a partir de fundsData, que es la fuente más fiable.
-                                if (!existing.table2 && !hasOwnFundsData) {
-                                    existing.table2 = {
-                                        ingresoTotal: row.ingresoTotal ?? null,
-                                        rf: row.rf ?? null,
-                                        rv: row.rv ?? null,
-                                        cartera: row.cartera ?? null,
-                                        patrimonio: row.patrimonio ?? null,
-                                        diffCartera: row.diffCartera ?? null,
-                                        diffCarteraPct: row.diffCarteraPct ?? null,
-                                        diffPatrimonio: row.diffPatrimonio ?? null,
-                                        diffPatrimonioPct: row.diffPatrimonioPct ?? null
-                                    };
-                                    existing.summary = {
-                                        ingresoTotal: row.ingresoTotal ?? null,
-                                        rf: row.rf ?? null,
-                                        rv: row.rv ?? null,
-                                        cartera: row.cartera ?? null,
-                                        patrimonio: row.patrimonio ?? null
-                                    };
-                                }
-                                byDate.set(row.date, existing);
-                            });
-                            importedSnapshots = Array.from(byDate.values())
-                                .sort((a,b) => b.date.localeCompare(a.date));
-                        }
-
-                        if (importedSnapshots.length) {
-                            setSnapshots(importedSnapshots);
-                            imported++;
-                        }
-
-                        if (imported === 0) {
-                            setNotification("❌ Error: El archivo no contiene datos reconocibles.");
-                        } else {
-                            setNotification(`Datos restaurados correctamente. Tabla 2: ${importedSnapshots.length} registros.`);
-                        }
-                    } catch (err) {
-                        console.error("Error al importar copia de seguridad:", err);
-                        setNotification("❌ Error: El archivo no es válido.");
-                    }
-                };
-                reader.onerror = () => setNotification("❌ Error: No se pudo leer el archivo.");
-                reader.readAsText(file);
                 e.target.value = '';
+                if (!file || readingImport || pendingImport) return;
+                setReadingImport(true);
+                const reader = new FileReader();
+                reader.onload = event => {
+                    try {
+                        const input = event.target.result;
+                        const prepared = FamilyBackup.prepareRestore(input, dataRef.current);
+                        if (recoveryMode && prepared.replaced.length !== FamilyBackup.BLOCKS.length) {
+                            throw new Error('El almacenamiento original no se pudo leer. Para evitar perder bloques desconocidos, restaura una copia completa con ingresos, gastos, fondos y fotografías.');
+                        }
+                        const storageBefore = FamilyBackup.readStorageSnapshot(window.localStorage);
+                        setBackupRequested(false);
+                        setBackupConfirmed(false);
+                        setSkipBackup(false);
+                        setPendingImport({ input, prepared, storageBefore });
+                    } catch (error) {
+                        setNotification(`❌ No se ha importado ningún dato. ${error instanceof SyntaxError ? 'El archivo no es JSON válido.' : error.message}`);
+                    } finally { setReadingImport(false); }
+                };
+                reader.onerror = () => {
+                    setReadingImport(false);
+                    setNotification('❌ No se pudo leer el archivo. Los datos anteriores no se han modificado.');
+                };
+                reader.onabort = reader.onerror;
+                try { reader.readAsText(file); } catch (error) { reader.onerror(); }
+            };
+            const confirmImport = () => {
+                if (!pendingImport || !(skipBackup || (backupRequested && backupConfirmed))) return;
+                try {
+                    const restored = FamilyBackup.restore(window.localStorage, pendingImport.input, dataRef.current, pendingImport.storageBefore);
+                    dataRef.current = restored.data;
+                    setData(restored.data);
+                    setStorageError('');
+                    setRecoveryMode(false);
+                    setPendingImport(null);
+                    setNotification(`Datos restaurados y guardados correctamente. Fotografías: ${restored.data.snapshots.length}.`);
+                } catch (error) {
+                    setStorageError(`No se ha restaurado ningún dato. Comprueba el archivo, el espacio y los permisos de almacenamiento. ${error.message}`);
+                }
             };
 
             return (
@@ -1765,10 +1768,10 @@
                                     <span className="text-2xl">💼</span> Economía Familiar
                                 </h1>
                                 <div className="flex flex-wrap gap-2 items-center">
-                                    <button onClick={handleExport} className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs font-bold hover:bg-gray-200 shadow-sm border border-gray-300">⬇️ Exportar Datos</button>
+                                    <button onClick={downloadCurrentBackup} className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs font-bold hover:bg-gray-200 shadow-sm border border-gray-300">{recoveryMode ? '⬇️ Descargar almacenamiento original' : '⬇️ Exportar Datos'}</button>
                                     <label className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded text-xs font-bold hover:bg-blue-100 cursor-pointer shadow-sm border border-blue-200">
                                         ⬆️ Importar Datos
-                                        <input type="file" accept=".json" className="hidden" onChange={handleImport} />
+                                        <input type="file" accept=".json" className="hidden" onChange={handleImport} disabled={readingImport || Boolean(pendingImport)} />
                                     </label>
                                 </div>
                             </div>
@@ -1780,11 +1783,32 @@
                         </div>
                     </header>
 
-                    <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
+                    {storageError && <div role="alert" className="m-4 p-4 border border-red-400 bg-red-50 text-red-900 rounded">{storageError}</div>}
+                    {readingImport && <p role="status" className="m-4">Leyendo y validando la copia. Todavía no se ha cambiado ningún dato.</p>}
+                    <dialog ref={importDialogRef} aria-labelledby="restore-title" onCancel={() => setPendingImport(null)} className="rounded-xl p-6 max-w-xl w-full shadow-xl backdrop:bg-black/50">
+                        {pendingImport && <div className="space-y-4">
+                            <h2 id="restore-title" className="text-xl font-bold">Revisar restauración JSON</h2>
+                            <p>La copia es válida. Se sustituirán los bloques indicados, aunque estén vacíos. Los bloques ausentes conservarán sus datos actuales.</p>
+                            <ul className="list-disc pl-5">
+                                {FamilyBackup.BLOCKS.map(key => <li key={key}>{({ incomes: 'Ingresos', expenses: 'Gastos', funds: 'Fondos', snapshots: 'Fotografías' })[key]}: {pendingImport.prepared.replaced.includes(key) ? `sustituir por ${pendingImport.prepared.data[key].length} registros` : 'conservar sin cambios'}</li>)}
+                            </ul>
+                            <p>Antes de sustituir datos, conserva una copia recuperable en un lugar privado.</p>
+                            {recoveryMode && <p>La descarga conserva el almacenamiento original sin modificar. Si está dañado, necesitará revisión para recuperarlo; no es una copia JSON lista para importar.</p>}
+                            <button type="button" onClick={downloadCurrentBackup} className="px-4 py-2 border rounded">{recoveryMode ? 'Descargar almacenamiento original' : 'Descargar copia de los datos actuales'}</button>
+                            {backupRequested && <label className="flex gap-2 items-start"><input type="checkbox" checked={backupConfirmed} onChange={e => setBackupConfirmed(e.target.checked)} />He comprobado que el archivo se ha guardado.</label>}
+                            <label className="flex gap-2 items-start"><input type="checkbox" checked={skipBackup} onChange={e => setSkipBackup(e.target.checked)} />Prefiero continuar sin descargar una copia. Entiendo que sustituiré los datos indicados.</label>
+                            {storageError && <p role="alert" className="text-red-800">{storageError}</p>}
+                            <div className="flex gap-3">
+                                <button type="button" onClick={() => setPendingImport(null)} className="px-4 py-2 border rounded">Cancelar</button>
+                                <button type="button" onClick={confirmImport} disabled={!(skipBackup || (backupRequested && backupConfirmed))} className="px-4 py-2 bg-blue-700 text-white rounded disabled:opacity-50">Restaurar datos</button>
+                            </div>
+                        </div>}
+                    </dialog>
+                    {!recoveryMode && <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
                         {activeTab === 'ingresos' && <IngresosTab incomes={incomes} addIncome={addIncome} updateIncome={updateIncome} deleteIncome={deleteIncome} showMessage={setNotification} />}
                         {activeTab === 'gastos' && <GastosTab expenses={expenses} addExpense={addExpense} updateExpense={updateExpense} deleteExpense={deleteExpense} incomes={incomes} showMessage={setNotification} />}
                         {activeTab === 'inversiones' && <InversionesTab funds={funds} setFunds={setFunds} snapshots={snapshots} addSnapshot={addSnapshot} updateSnapshot={updateSnapshot} deleteSnapshot={deleteSnapshot} showMessage={setNotification} />}
-                    </main>
+                    </main>}
                 </div>
             );
         };
