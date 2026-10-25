@@ -1,5 +1,9 @@
 # Pruebas de restauración JSON
 
+La [candidata de publicación conjunta](CANDIDATA-PUBLICACION.md) reúne las dos
+mejoras en la PR #3 con base main. Incluye el resultado de preparación y cómo
+se cargarán los datos actuales, sin haber ejecutado la publicación.
+
 **Estado actual:** el usuario ha comunicado validación manual parcial
 satisfactoria en Chrome Invitado. Consulta los [resultados y límites](VALIDACION-CHROME-INVITADO.md)
 y el [plan de publicación sin versión intermedia](PUBLICACION-SEGURA.md).

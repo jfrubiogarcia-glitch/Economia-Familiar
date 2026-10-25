@@ -67,8 +67,9 @@ Al revisar las PR, GitHub indicó que ambas eran integrables sin conflictos con
 sus bases actuales. No había resultados de checks/estados CI publicados en los
 commits consultados; esto no se presenta como una aprobación de CI.
 
-El orden de dependencia es `main → PR #2 → PR #3`. La rama de la PR #3 incluye
-ambas mejoras. Las PR siguen abiertas y en borrador, sin fusión automática.
+El orden de dependencia del código es `main → PR #2 → PR #3`. La rama de #3 incluye
+ambas mejoras. En la preparación posterior, su base se cambió a main para una
+integración conjunta. Las PR siguen abiertas y en borrador, sin fusión automática.
 
 ## Riesgos de transición y publicación
 

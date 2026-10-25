@@ -1,6 +1,8 @@
 # Archivado y recuperación del catálogo financiero
 
-Rama: `fix/preserve-fund-history`, basada en `f3528ef` de la PR #2.
+Rama: `fix/preserve-fund-history`, que incluye `f3528ef` de la PR #2.
+La PR #3 tiene ahora como base main para preparar el paquete conjunto,
+sin fusionar ni publicar. Véase la [candidata](CANDIDATA-PUBLICACION.md).
 Los criterios de último valor cero y recuperación confirmada desde registros
 originales fueron aprobados por el usuario antes de implementarse.
 

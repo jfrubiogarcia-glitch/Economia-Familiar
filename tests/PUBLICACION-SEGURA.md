@@ -1,14 +1,17 @@
 # Preparación de integración y publicación
 
-**Plan propuesto, no ejecutado.** Las PR #2 y #3 deben seguir en borrador hasta
-una autorización explícita. No se ha fusionado ninguna ni modificado main.
+**Integración conjunta preparada, sin ejecutar la publicación.** Con autorización
+del usuario se ha cambiado la base de #3 a main para que incluya ambas mejoras.
+Las dos PR siguen en borrador. No se ha fusionado ninguna ni modificado main.
+El [informe de la candidata](CANDIDATA-PUBLICACION.md) recoge pruebas, archivos
+y explicación de la conservación de datos.
 
 ## Dependencias comprobadas
 
 | PR | Rama | Base actual | Papel |
 | --- | --- | --- | --- |
 | #2 | `fix/safe-json-restore` | `main` | Restauración y almacenamiento íntegros |
-| #3 | `fix/preserve-fund-history` | `fix/safe-json-restore` | Archivado y recuperación; incluye #2 |
+| #3 | `fix/preserve-fund-history` | `main` | Paquete conjunto: restauración, archivado y recuperación; incluye #2 |
 
 GitHub informa de ausencia de conflictos con las bases actuales. La revisión
 de ascendencia confirma que el código de #2 está incluido en #3. Esto permite
@@ -33,13 +36,12 @@ podría publicarse una versión intermedia que aún permite eliminar fondos.
 2. Identificar la versión conjunta candidata y conservar sus referencias.
    Ejecutar las pruebas automatizadas contra esa referencia. Si solo cambió
    documentación, no presentar eso como una nueva validación funcional.
-3. **Preparar una única integración pública con ambas mejoras.** La vía más
-   sencilla es, con autorización, cambiar la base de #3 a main: su rama ya
-   contiene #2. Revisar el diff ampliado, que incluirá los cambios ya revisados
-   de #2. Hoy no se ha cambiado ninguna base.
-4. Volver a comprobar conflictos, archivos incluidos y resultados de pruebas
-   tras ese cambio de base. Si resolver conflictos modifica código, repetir
-   las comprobaciones afectadas. No incorporar cambios ajenos a ambas mejoras.
+3. **Preparación realizada:** #3 apunta ahora a main y contiene #2. El diff
+   ampliado incluye ambos cambios ya revisados. Esto solo prepara la PR;
+   no fusiona código ni activa Pages. La integración sigue pendiente de autorización.
+4. Se vuelven a comprobar conflictos, archivos incluidos, dependencias y pruebas
+   tras ese cambio de base. Si main o la candidata cambian antes de aprobar,
+   revisar otra vez esos resultados. No incorporar cambios ajenos a ambas mejoras.
 5. Tras autorización final, integrar ese paquete una sola vez a main. Un commit
    de fusión conserva la ascendencia y facilita comprobar que los commits de
    #2 también quedaron incluidos. Comprobar el estado de #2 después; no asumir
