@@ -13,6 +13,7 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <!-- Chart.js para gráficas -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="./backup.js"></script>
     
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; background-color: #f3f4f6; }
@@ -77,26 +78,6 @@
                 }} />;
         };
 
-        const loadSafe = (key, defaultVal) => {
-            try { const item = localStorage.getItem(key); return item ? JSON.parse(item) : defaultVal; }
-            catch(e) { return defaultVal; }
-        };
-        const saveSafe = (key, value) => {
-            try { localStorage.setItem(key, JSON.stringify(value)); }
-            catch(e) { console.error("Error guardando en LocalStorage", e); }
-        };
-
-        const INITIAL_FUNDS = [];
-
-        const INITIAL_INCOMES = [];
-
-        const INITIAL_EXPENSES = [];
-
-        const INITIAL_SNAPSHOTS = [];
-
-        // This public version starts clean and uses its own storage namespace.
-        const PUBLIC_STORAGE = { incomes: 'eco_public_blank_v4_incomes', expenses: 'eco_public_blank_v4_expenses', snapshots: 'eco_public_blank_v4_snapshots', funds: 'eco_public_blank_v4_funds' };
-
         const LINE_CHART_OPTIONS = { elements: { line: { tension: 0.3, borderWidth: 3 } } };
 
         const SimpleChart = ({ data, type = 'line', options = {} }) => {
@@ -146,8 +127,8 @@
         };
 
         const Notification = ({ message, onClose }) => {
+            useEffect(() => { if (!message) return; const timer = setTimeout(onClose, 3000); return () => clearTimeout(timer); }, [message, onClose]);
             if (!message) return null;
-            useEffect(() => { const timer = setTimeout(onClose, 3000); return () => clearTimeout(timer); }, [message, onClose]);
             return (
                 <div className="fixed bottom-4 right-4 bg-gray-900 text-white px-6 py-3 rounded-lg shadow-xl z-50 flex items-center gap-3 fade-in">
                     <span>✅</span> <span className="font-medium">{message}</span>
@@ -307,11 +288,11 @@
                 const fullDate = `${selectedYearInput}-${selectedMonthInput}`;
 
                 if (editingId) {
-                    updateIncome({ id: editingId, date: fullDate, owner, concept: finalConcept, amount: parseAmount(amount) });
+                    if (updateIncome({ id: editingId, date: fullDate, owner, concept: finalConcept, amount: parseAmount(amount) }) === false) return;
                     showMessage("Ingreso actualizado correctamente");
                     setEditingId(null);
                 } else {
-                    addIncome({ id: generateId(), date: fullDate, owner, concept: finalConcept, amount: parseAmount(amount) });
+                    if (addIncome({ id: generateId(), date: fullDate, owner, concept: finalConcept, amount: parseAmount(amount) }) === false) return;
                     showMessage("Ingreso añadido correctamente");
                 }
 
@@ -618,7 +599,7 @@
                                             <div className="flex items-center gap-3">
                                                 <span className="font-medium text-green-600">{formatCurrency(i.amount)}</span>
                                                 <button onClick={()=>handleStartEdit(i)} className="px-2 py-1 bg-amber-50 text-amber-700 rounded hover:bg-amber-100 text-xs font-bold">Editar</button>
-                                                <button onClick={()=>{deleteIncome(i.id); showMessage("Ingreso eliminado");}} className="px-2 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100 text-xs font-bold">Borrar</button>
+                                                <button onClick={()=>{if (deleteIncome(i.id) !== false) showMessage("Ingreso eliminado");}} className="px-2 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100 text-xs font-bold">Borrar</button>
                                             </div>
                                         </li>
                                     ))}
@@ -708,11 +689,11 @@
                 const fullDate = `${selectedYearInput}-${selectedMonthInput}`;
 
                 if (editingId) {
-                    updateExpense({ id: editingId, date: fullDate, concept: finalConcept, amount: parseAmount(amount) });
+                    if (updateExpense({ id: editingId, date: fullDate, concept: finalConcept, amount: parseAmount(amount) }) === false) return;
                     showMessage("Gasto actualizado correctamente");
                     setEditingId(null);
                 } else {
-                    addExpense({ id: generateId(), date: fullDate, concept: finalConcept, amount: parseAmount(amount) });
+                    if (addExpense({ id: generateId(), date: fullDate, concept: finalConcept, amount: parseAmount(amount) }) === false) return;
                     showMessage("Gasto/Ahorro añadido correctamente");
                 }
 
@@ -1020,7 +1001,7 @@
                                             <div className="flex items-center gap-3">
                                                 <span className="font-medium text-red-600">{formatCurrency(e.amount)}</span>
                                                 <button onClick={()=>handleStartEdit(e)} className="px-2 py-1 bg-amber-50 text-amber-700 rounded hover:bg-amber-100 text-xs font-bold">Editar</button>
-                                                <button onClick={()=>{deleteExpense(e.id); showMessage("Gasto eliminado");}} className="px-2 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100 text-xs font-bold">Borrar</button>
+                                                <button onClick={()=>{if (deleteExpense(e.id) !== false) showMessage("Gasto eliminado");}} className="px-2 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100 text-xs font-bold">Borrar</button>
                                             </div>
                                         </li>
                                     ))}
@@ -1036,6 +1017,9 @@
             const currentYearStr = new Date().getFullYear().toString();
             const months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
             const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+            const activeFunds = funds.filter(f => !f.archived);
+            const archivedFunds = funds.filter(f => f.archived);
+            const fundDataset = { funds, snapshots };
 
             const [selectedYear, setSelectedYear] = useState(currentYearStr);
             const detailedSnaps = snapshots.filter(s => !s.summaryOnly && (Object.keys(s.fundsData || {}).length > 0 || (!s.table2 && !s.summary)));
@@ -1045,6 +1029,9 @@
             const [snapLiquidity, setSnapLiquidity] = useState(0);
             const [snapFundsData, setSnapFundsData] = useState({});
             const [editingSnapId, setEditingSnapId] = useState(null);
+            const [archivedValuesConfirmed, setArchivedValuesConfirmed] = useState(false);
+            const [showArchivedHistory, setShowArchivedHistory] = useState(false);
+            useEffect(() => { setArchivedValuesConfirmed(false); }, [snapDate, snapFundsData, editingSnapId]);
 
             const [showFundModal, setShowFundModal] = useState(false);
             const [editingFund, setEditingFund] = useState(null);
@@ -1053,16 +1040,21 @@
             const [fundStart, setFundStart] = useState('2026-01-01');
             const [fundType, setFundType] = useState('Renta Variable');
             const [fundGestora, setFundGestora] = useState('Varios');
+            const fundRecordLocked = Boolean(editingFund && FamilyBackup.referencedFund(fundDataset, editingFund.id));
 
             useEffect(() => {
                 if (latestSnap && !editingSnapId) {
                     setSnapLiquidity(latestSnap.liquidity);
                     const initialData = {};
-                    funds.forEach(f => { initialData[f.id] = { ingreso: latestSnap.fundsData?.[f.id]?.ingreso || 0, value: latestSnap.fundsData?.[f.id]?.value || 0 }; });
+                    funds.forEach(f => {
+                        if (f.archived) {
+                            if (latestSnap.fundsData?.[f.id]) initialData[f.id] = { ...latestSnap.fundsData[f.id] };
+                        } else initialData[f.id] = { ingreso: latestSnap.fundsData?.[f.id]?.ingreso || 0, value: latestSnap.fundsData?.[f.id]?.value || 0 };
+                    });
                     setSnapFundsData(initialData);
                 } else if (!editingSnapId) {
                     const initialData = {};
-                    funds.forEach(f => { initialData[f.id] = { ingreso: 0, value: 0 }; });
+                    activeFunds.forEach(f => { initialData[f.id] = { ingreso: 0, value: 0 }; });
                     setSnapFundsData(initialData);
                 }
             }, [latestSnap, funds, editingSnapId]);
@@ -1077,6 +1069,10 @@
 
             const handleSaveSnapshot = (e) => {
                 e.preventDefault();
+                if (!editingSnapId && archivedFunds.length && !archivedValuesConfirmed) {
+                    showMessage('Revisa y confirma los valores conservados de los fondos archivados.');
+                    return;
+                }
                 const parsedFundsData = {};
                 Object.keys(snapFundsData).forEach(id => {
                     parsedFundsData[id] = {
@@ -1084,13 +1080,16 @@
                         value: parseAmount(snapFundsData[id]?.value) || 0
                     };
                 });
-                const newSnap = { id: editingSnapId || generateId(), date: snapDate, liquidity: parseAmount(snapLiquidity) || 0, fundsData: parsedFundsData };
+                let preservedFundsData;
+                try { preservedFundsData = FamilyBackup.prepareSnapshotFunds(fundDataset, parsedFundsData, editingSnapId, snapDate); }
+                catch (error) { showMessage(error.message); return; }
+                const newSnap = { id: editingSnapId || generateId(), date: snapDate, liquidity: parseAmount(snapLiquidity) || 0, fundsData: preservedFundsData };
                 if (editingSnapId) {
-                    updateSnapshot(newSnap);
+                    if (updateSnapshot(newSnap) === false) return;
                     showMessage("Fotografía actualizada correctamente");
                     setEditingSnapId(null);
                 } else {
-                    addSnapshot(newSnap);
+                    if (addSnapshot(newSnap) === false) return;
                     showMessage("Fotografía guardada correctamente");
                 }
             };
@@ -1119,22 +1118,34 @@
                 e.preventDefault();
                 if (!fundName.trim()) return;
                 if (editingFund) {
+                    if (FamilyBackup.referencedFund(fundDataset, editingFund.id) &&
+                        (fundName !== editingFund.name || fundIsin !== editingFund.isin || fundStart !== editingFund.start || fundType !== editingFund.type || fundGestora !== editingFund.gestora)) {
+                        showMessage('Los datos del fondo están vinculados al histórico y no se modificarán desde este formulario.');
+                        return;
+                    }
                     const updated = funds.map(f => f.id === editingFund.id ? { ...f, name: fundName, isin: fundIsin, start: fundStart, type: fundType, gestora: fundGestora } : f);
-                    setFunds(updated);
+                    if (setFunds(updated) === false) return;
                     showMessage("Fondo actualizado con éxito");
                 } else {
                     const newF = { id: generateId(), name: fundName, isin: fundIsin || 'N/A', start: fundStart, type: fundType, gestora: fundGestora };
-                    setFunds([...funds, newF]);
+                    if (setFunds([...funds, newF]) === false) return;
                     showMessage("Nuevo fondo añadido");
                 }
                 setShowFundModal(false);
             };
 
-            const handleDeleteFund = (id) => {
-                if (confirm("¿Estás seguro de eliminar este fondo?")) {
-                    setFunds(funds.filter(f => f.id !== id));
-                    showMessage("Fondo eliminado");
-                }
+            const handleArchiveFund = (id) => {
+                try {
+                    const next = FamilyBackup.setFundArchived(fundDataset, id, true);
+                    if (!confirm('¿Archivar este fondo? Se conserva su identificador y todo su histórico. No se registra ninguna venta o retirada.')) return;
+                    if (setFunds(next.funds) === false) return;
+                    setShowFundModal(false);
+                    showMessage('Fondo archivado. Su histórico se conserva.');
+                } catch (error) { showMessage(error.message); }
+            };
+            const handleReactivateFund = (id) => {
+                const next = FamilyBackup.setFundArchived(fundDataset, id, false);
+                if (setFunds(next.funds) !== false) showMessage('Fondo reactivado sin modificar sus fotografías.');
             };
 
             const yearSnaps = detailedSnaps.filter(s => s.date.startsWith(selectedYear));
@@ -1175,6 +1186,7 @@
             });
 
             const { items: sortedTable1Rows, requestSort: requestTable1Sort } = useSortableData(table1Rows);
+            const displayedTable1Rows = sortedTable1Rows.filter(f => !f.archived || showArchivedHistory);
 
             const sortedSnapsDesc = [...snapshots].sort((a,b) => b.date.localeCompare(a.date));
             const historyRows = sortedSnapsDesc.map((snap, idx, arr) => {
@@ -1252,7 +1264,7 @@
                 const original = snapshots.find(s => s.id === manualDraft.id);
                 const entry = { ...original, id: manualDraft.id || generateId(), date: manualDraft.date,
                     liquidity: parseAmount(manualDraft.liquidity), table2, summaryOnly: true };
-                if (manualDraft.id) updateSnapshot(entry); else addSnapshot(entry);
+                if ((manualDraft.id ? updateSnapshot(entry) : addSnapshot(entry)) === false) return;
                 setManualDraft(null); showMessage('Registro de la tabla 2 guardado');
             };
 
@@ -1323,7 +1335,7 @@
                         <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
                             <h2 className="font-black text-teal-800 text-lg flex items-center gap-2"><span>📝</span> {editingSnapId ? 'Editando Fotografía' : 'Añadir Fotografía de la Cartera'}</h2>
                             <div className="flex items-center gap-2">
-                                <button type="button" onClick={handleOpenAddFund} className="px-3 py-2 bg-teal-600 text-white rounded font-bold text-xs hover:bg-teal-700 shadow">➕ Gestionar Fondos (Añadir/Editar/Borrar)</button>
+                                <button type="button" onClick={handleOpenAddFund} className="px-3 py-2 bg-teal-600 text-white rounded font-bold text-xs hover:bg-teal-700 shadow">➕ Añadir fondo</button>
                             </div>
                         </div>
                         <details open={snapshots.length === 0 || editingSnapId}>
@@ -1334,7 +1346,7 @@
                                     <div><label className="block text-sm font-bold text-teal-700">Liquidez en Bancos (€)</label><AmountInput value={snapLiquidity} onChange={e=>setSnapLiquidity(e.target.value)} className="w-full p-2 border rounded border-teal-300 font-bold outline-teal-500" required /></div>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[50vh] overflow-y-auto pr-2">
-                                    {funds.map(f => (
+                                    {activeFunds.map(f => (
                                         <div key={f.id} className="p-3 bg-gray-50 border rounded hover:border-teal-300 transition-colors">
                                             <div className="flex justify-between items-start">
                                                 <p className="font-bold text-sm text-gray-800 truncate" title={f.name}>{f.name}</p>
@@ -1348,25 +1360,37 @@
                                         </div>
                                     ))}
                                 </div>
+                                {archivedFunds.length > 0 && <div className="mt-4 p-3 border rounded bg-amber-50 space-y-2">
+                                    <p className="font-bold">Valores registrados de fondos archivados</p>
+                                    <p>No son fondos activos. Fuente: fotografía {editingSnapId ? snapshots.find(s => s.id === editingSnapId)?.date : latestSnap?.date || 'sin datos'}. Al editar se conserva su desglose original. Para una nueva fotografía, revisa expresamente los valores mostrados; no se registran ventas ni retiradas.</p>
+                                    {archivedFunds.map(f => <p key={f.id}>{f.name}: ingreso {formatOptionalCurrency(snapFundsData[f.id]?.ingreso)}, valor {formatOptionalCurrency(snapFundsData[f.id]?.value)}</p>)}
+                                    {!editingSnapId && <label className="flex gap-2"><input type="checkbox" checked={archivedValuesConfirmed} onChange={e=>setArchivedValuesConfirmed(e.target.checked)} />He revisado estos valores registrados y confirmo que siguen siendo los de esta nueva fotografía.</label>}
+                                </div>}
                                 <div className="flex gap-2 mt-6">
                                     <button type="submit" className="flex-1 bg-teal-700 text-white p-3 rounded-lg font-black hover:bg-teal-800 shadow-lg transition-colors">{editingSnapId ? 'Actualizar Fotografía' : 'Guardar Fotografía Semanal'}</button>
                                     {editingSnapId && <button type="button" onClick={()=>{setEditingSnapId(null);}} className="px-6 bg-gray-300 text-gray-700 rounded-lg font-bold">Cancelar</button>}
                                 </div>
                             </form>
                         </details>
+                        {archivedFunds.length > 0 && <details className="mt-4 border-t pt-3">
+                            <summary className="font-bold">Fondos archivados actualmente ({archivedFunds.length})</summary>
+                            <p>Sus registros siguen disponibles para calcular el histórico.</p>
+                            {archivedFunds.map(f => <div key={f.id} className="p-2 border-b"><div className="flex justify-between gap-3"><span>{f.name} · {f.type} · {f.isin}</span><button type="button" onClick={()=>handleReactivateFund(f.id)} className="text-blue-700 underline">Reactivar</button></div>{!FamilyBackup.archiveEligibility(fundDataset, f.id).allowed && <p role="alert">Estado incompatible: su último valor no es cero o no consta. Conserva el histórico y reactiva el fondo para revisar nuevos registros; no se pondrá a cero automáticamente.</p>}</div>)}
+                        </details>}
                     </div>
 
                     {showFundModal && (
                         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                             <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full fade-in">
                                 <h3 className="text-lg font-bold text-teal-900 mb-4">{editingFund ? 'Editar Fondo' : 'Añadir Nuevo Fondo'}</h3>
+                                {fundRecordLocked && <p>Este fondo tiene fotografías. Sus datos identificativos y su clasificación original ({editingFund.type}) se conservan; puedes archivarlo si su último valor registrado es cero.</p>}
                                 <form onSubmit={handleSaveFundModal} className="space-y-4">
-                                    <div><label className="block text-xs font-bold text-gray-600 uppercase mb-1">Nombre del Fondo</label><input type="text" value={fundName} onChange={e=>setFundName(e.target.value)} className="w-full p-2 border rounded" required /></div>
-                                    <div><label className="block text-xs font-bold text-gray-600 uppercase mb-1">ISIN</label><input type="text" value={fundIsin} onChange={e=>setFundIsin(e.target.value)} className="w-full p-2 border rounded" placeholder="Ej: ES0140072010 o N5116" /></div>
-                                    <div><label className="block text-xs font-bold text-gray-600 uppercase mb-1">Fecha de Inicio</label><input type="date" value={fundStart} onChange={e=>setFundStart(e.target.value)} className="w-full p-2 border rounded" required /></div>
+                                    <div><label className="block text-xs font-bold text-gray-600 uppercase mb-1">Nombre del Fondo</label><input type="text" value={fundName} disabled={fundRecordLocked} onChange={e=>setFundName(e.target.value)} className="w-full p-2 border rounded" required /></div>
+                                    <div><label className="block text-xs font-bold text-gray-600 uppercase mb-1">ISIN</label><input type="text" value={fundIsin} disabled={fundRecordLocked} onChange={e=>setFundIsin(e.target.value)} className="w-full p-2 border rounded" placeholder="Ej: ES0140072010 o N5116" /></div>
+                                    <div><label className="block text-xs font-bold text-gray-600 uppercase mb-1">Fecha de Inicio</label><input type="date" value={fundStart} disabled={fundRecordLocked} onChange={e=>setFundStart(e.target.value)} className="w-full p-2 border rounded" required /></div>
                                     <div>
                                         <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Tipología</label>
-                                        <select value={fundType} onChange={e=>setFundType(e.target.value)} className="w-full p-2 border rounded">
+                                        <select value={fundType} disabled={fundRecordLocked} onChange={e=>setFundType(e.target.value)} className="w-full p-2 border rounded">
                                             <option value="Renta Variable">Renta Variable</option>
                                             <option value="Renta Fija Mixta">Renta Fija Mixta</option>
                                             <option value="Renta Fija">Renta Fija</option>
@@ -1374,11 +1398,11 @@
                                             <option value="Liquidez">Liquidez</option>
                                         </select>
                                     </div>
-                                    <div><label className="block text-xs font-bold text-gray-600 uppercase mb-1">Gestora</label><input type="text" value={fundGestora} onChange={e=>setFundGestora(e.target.value)} className="w-full p-2 border rounded" required /></div>
+                                    <div><label className="block text-xs font-bold text-gray-600 uppercase mb-1">Gestora</label><input type="text" value={fundGestora} disabled={fundRecordLocked} onChange={e=>setFundGestora(e.target.value)} className="w-full p-2 border rounded" required /></div>
                                     
                                     <div className="flex gap-2 pt-2">
                                         <button type="submit" className="flex-1 bg-teal-600 text-white p-2 rounded font-bold hover:bg-teal-700">Guardar Fondo</button>
-                                        {editingFund && <button type="button" onClick={()=>handleDeleteFund(editingFund.id)} className="px-4 bg-red-100 text-red-600 rounded font-bold">Eliminar</button>}
+                                        {editingFund && <button type="button" onClick={()=>handleArchiveFund(editingFund.id)} className="px-4 bg-amber-100 text-amber-900 rounded font-bold">Archivar</button>}
                                         <button type="button" onClick={()=>setShowFundModal(false)} className="px-4 bg-gray-200 text-gray-700 rounded font-bold">Cancelar</button>
                                     </div>
                                 </form>
@@ -1394,6 +1418,8 @@
                                 <input type="text" value={selectedYear} onChange={e=>setSelectedYear(e.target.value)} className="w-20 p-1 rounded bg-transparent font-bold text-teal-700 outline-none border text-center" />
                             </div>
                         </div>
+                        <label className="flex gap-2 p-3"><input type="checkbox" checked={showArchivedHistory} onChange={e=>setShowArchivedHistory(e.target.checked)} />Mostrar fondos archivados actualmente en el desglose histórico</label>
+                        <p className="px-3 pb-3 text-sm">Los cálculos del período incluyen el catálogo completo, también los archivados. El filtro solo cambia las filas visibles.</p>
                         <div className="w-full overflow-x-auto table-scroll">
                             <table className="w-full text-xs text-right funds-table">
                                 <thead className="bg-gray-100 border-b">
@@ -1421,11 +1447,11 @@
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
-                                    {sortedTable1Rows.length > 0 && currentSnap ? sortedTable1Rows.map(row => (
+                                    {displayedTable1Rows.length > 0 && currentSnap ? displayedTable1Rows.map(row => (
                                         <tr key={row.id} className="hover:bg-gray-50">
                                             <td className="px-2 py-2 text-left text-gray-500">{row.start}</td>
                                             <td className="px-2 py-2 text-left text-gray-500">{row.isin}</td>
-                                            <td className="px-3 py-2 text-left font-bold text-gray-800 border-r border-gray-200">{row.name} <br/><span className="text-[10px] text-gray-400 font-normal">{row.gestora}</span></td>
+                                            <td className="px-3 py-2 text-left font-bold text-gray-800 border-r border-gray-200">{row.name} {row.archived && <span className="text-amber-800">(archivado actualmente)</span>}<br/><span className="text-[10px] text-gray-400 font-normal">{row.gestora}</span></td>
                                             <td className="px-2 py-2 bg-blue-50/10 text-right">{formatOptionalCurrency(row.ing)}</td>
                                             <td className="px-2 py-2 bg-blue-50/10 text-right">{formatCurrency(row.ingresoAno)}</td>
                                             <td className="px-2 py-2 font-black text-blue-900 bg-blue-50/30 border-r border-blue-100 text-right">{formatCurrency(row.val)}</td>
@@ -1439,7 +1465,7 @@
                                             <td className="px-2 py-2 text-purple-800 bg-purple-50/20 text-right">{formatPercent(row.pesoIngreso)}</td>
                                         </tr>
                                     )) : (
-                                        <tr><td colSpan="14" className="text-center py-8 text-gray-400">No hay fotografías registradas en {selectedYear}.</td></tr>
+                                        <tr><td colSpan="14" className="text-center py-8 text-gray-400">{currentSnap ? 'No hay fondos activos visibles. Activa Mostrar fondos archivados para consultar su desglose.' : `No hay fotografías registradas en ${selectedYear}.`}</td></tr>
                                     )}
                                 </tbody>
                                 {currentSnap && (
@@ -1523,7 +1549,7 @@
                                                         window.scrollTo({ top: 0, behavior: 'smooth' });
                                                         showMessage("Cargado en el formulario superior para editar");
                                                     }} className="px-1.5 py-1 bg-amber-50 text-amber-700 rounded hover:bg-amber-100 text-[10px] font-bold">Editar</button>
-                                                    <button onClick={()=>{deleteSnapshot(row.id); showMessage("Registro eliminado");}} className="text-red-400 hover:text-red-600 font-bold text-xs bg-red-50 p-1 rounded">Borrar</button>
+                                                    <button onClick={()=>{if (deleteSnapshot(row.id) !== false) showMessage("Registro eliminado");}} className="text-red-400 hover:text-red-600 font-bold text-xs bg-red-50 p-1 rounded">Borrar</button>
                                                 </td>
                                             </tr>
                                         ))
@@ -1583,15 +1609,62 @@
             const [activeTab, setActiveTab] = useState('ingresos');
             const [notification, setNotification] = useState('');
             
-            const [incomes, setIncomes] = useState(() => loadSafe(PUBLIC_STORAGE.incomes, INITIAL_INCOMES));
-            const [expenses, setExpenses] = useState(() => loadSafe(PUBLIC_STORAGE.expenses, INITIAL_EXPENSES));
-            const [snapshots, setSnapshots] = useState(() => loadSafe(PUBLIC_STORAGE.snapshots, INITIAL_SNAPSHOTS));
-            const [funds, setFunds] = useState(() => loadSafe(PUBLIC_STORAGE.funds, INITIAL_FUNDS));
+            const [initial] = useState(() => {
+                try { return { data: FamilyBackup.loadDataset(window.localStorage), error: '' }; }
+                catch (error) { return { data: FamilyBackup.emptyDataset(), error: 'No se han podido leer los datos guardados. No se han sobrescrito. Descarga el almacenamiento original antes de restaurar una copia válida.' }; }
+            });
+            const [data, setData] = useState(initial.data);
+            const dataRef = useRef(data);
+            const [storageError, setStorageError] = useState(initial.error);
+            const [recoveryMode, setRecoveryMode] = useState(Boolean(initial.error));
+            const [pendingImport, setPendingImport] = useState(null);
+            const [pendingRecovery, setPendingRecovery] = useState(null);
+            const [recoveryReading, setRecoveryReading] = useState(false);
+            const [originalRecordConfirmed, setOriginalRecordConfirmed] = useState(false);
+            const recoveryRequestRef = useRef(0);
+            const recoveryDialogRef = useRef(null);
+            const [readingImport, setReadingImport] = useState(false);
+            const [backupRequested, setBackupRequested] = useState(false);
+            const [backupConfirmed, setBackupConfirmed] = useState(false);
+            const [skipBackup, setSkipBackup] = useState(false);
+            const importDialogRef = useRef(null);
+            const { incomes, expenses, snapshots, funds } = data;
+            const orphanFunds = FamilyBackup.findOrphans(data);
+            useEffect(() => {
+                const dialog = importDialogRef.current;
+                if (pendingImport && !dialog.open) dialog.showModal();
+                else if (!pendingImport && dialog.open) dialog.close();
+            }, [pendingImport]);
+            useEffect(() => {
+                const dialog = recoveryDialogRef.current;
+                if (pendingRecovery && !dialog.open) dialog.showModal();
+                else if (!pendingRecovery && dialog.open) dialog.close();
+            }, [pendingRecovery]);
 
-            useEffect(() => { saveSafe(PUBLIC_STORAGE.incomes, incomes); }, [incomes]);
-            useEffect(() => { saveSafe(PUBLIC_STORAGE.expenses, expenses); }, [expenses]);
-            useEffect(() => { saveSafe(PUBLIC_STORAGE.snapshots, snapshots); }, [snapshots]);
-            useEffect(() => { saveSafe(PUBLIC_STORAGE.funds, funds); }, [funds]);
+            const commitData = (next) => {
+                if (recoveryMode) return false;
+                if (next.funds.some(f => f.archived && !FamilyBackup.archiveEligibility(next, f.id).allowed)) {
+                    setStorageError('El cambio dejaría un fondo archivado sin último valor cero. No se ha aplicado. Revisa el histórico o reactiva el fondo antes de modificar esos registros.');
+                    return false;
+                }
+                try {
+                    FamilyBackup.saveDataset(window.localStorage, next);
+                } catch (error) {
+                    setNotification('');
+                    setStorageError('No se pudo guardar: comprueba el espacio disponible y los permisos de almacenamiento. Los datos anteriores se conservan; el cambio no se ha aplicado.');
+                    return false;
+                }
+                dataRef.current = next;
+                setData(next);
+                setStorageError('');
+                return true;
+            };
+            const updateBlock = (key, update) => commitData({ ...dataRef.current,
+                [key]: typeof update === 'function' ? update(dataRef.current[key]) : update });
+            const setIncomes = update => updateBlock('incomes', update);
+            const setExpenses = update => updateBlock('expenses', update);
+            const setFunds = update => updateBlock('funds', update);
+            const setSnapshots = update => updateBlock('snapshots', update);
 
             const addIncome = (inc) => setIncomes(prev => [...prev, inc].sort((a,b)=>b.date.localeCompare(a.date)));
             const updateIncome = (updatedInc) => setIncomes(prev => prev.map(i => i.id === updatedInc.id ? updatedInc : i).sort((a,b)=>b.date.localeCompare(a.date)));
@@ -1602,7 +1675,7 @@
             const deleteExpense = (id) => setExpenses(prev => prev.filter(e => e.id !== id));
             
             const addSnapshot = (snap) => {
-                setSnapshots(prev => {
+                return setSnapshots(prev => {
                     const exists = prev.findIndex(s => s.date === snap.date);
                     let newArr = [...prev];
                     if (exists >= 0) newArr[exists] = snap; else newArr.push(snap);
@@ -1610,7 +1683,7 @@
                 });
             };
             const updateSnapshot = (updatedSnap) => {
-                setSnapshots(prev => prev.map(s => s.id === updatedSnap.id ? updatedSnap : s).sort((a,b)=>b.date.localeCompare(a.date)));
+                return setSnapshots(prev => prev.map(s => s.id === updatedSnap.id ? updatedSnap : s).sort((a,b)=>b.date.localeCompare(a.date)));
             };
             const deleteSnapshot = (id) => setSnapshots(prev => prev.filter(s => s.id !== id));
 
@@ -1641,6 +1714,9 @@
             };
 
             const handleExport = () => {
+                if (FamilyBackup.findOrphans({ funds, snapshots }).length) {
+                    return downloadJSON({ incomes, expenses, snapshots, funds }, 'Original_Con_Referencias_Pendientes.json');
+                }
                 const sortedSnapsDesc = snapshots.slice().sort((a,b) => b.date.localeCompare(a.date));
                 const tabla2EvolucionPatrimonial = sortedSnapsDesc.map((s, idx) => {
                     const curr = getSnapTotals(s);
@@ -1661,97 +1737,157 @@
                     };
                 });
                 const data = { incomes, expenses, snapshots, funds, tabla2EvolucionPatrimonial };
-                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = `CopiaSeguridad_EconomiaFamiliar.json`;
-                a.click();
-                setNotification("Copia de seguridad descargada. Guárdala en un lugar seguro.");
+                return downloadJSON(data, 'CopiaSeguridad_EconomiaFamiliar.json');
+            };
+
+            const downloadJSON = (value, filename) => {
+                try {
+                    const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    try { a.click(); } finally { a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
+                    setNotification('Descarga solicitada. Comprueba que el archivo se ha guardado antes de continuar.');
+                    return true;
+                } catch (error) {
+                    setNotification('❌ No se pudo preparar la descarga. No se ha restaurado ningún dato.');
+                    return false;
+                }
+            };
+            const downloadCurrentBackup = () => {
+                let requested;
+                if (recoveryMode) {
+                    try {
+                        requested = downloadJSON({ rawStorage: FamilyBackup.readStorageSnapshot(window.localStorage) }, 'Recuperacion_Almacenamiento_Original.json');
+                    } catch (error) {
+                        setStorageError('No se puede acceder al almacenamiento original. No se ha modificado ningún dato. Revisa los permisos del navegador antes de continuar.');
+                        return false;
+                    }
+                } else {
+                    try { FamilyBackup.validateDataset(dataRef.current); }
+                    catch (error) {
+                        setStorageError('Los datos actuales contienen inconsistencias. La descarga conserva los registros originales, pero necesitará revisión antes de poder restaurarse. No se ha reparado ni eliminado ningún registro.');
+                    }
+                    requested = handleExport();
+                }
+                if (requested) setBackupRequested(true);
+                return requested;
+            };
+
+            const beginRecovery = (target, kind = 'current', replaced = []) => {
+                try {
+                    const storageBefore = FamilyBackup.readStorageSnapshot(window.localStorage);
+                    recoveryRequestRef.current++;
+                    setRecoveryReading(false);
+                    setOriginalRecordConfirmed(false);
+                    setBackupRequested(false);
+                    setBackupConfirmed(false);
+                    setSkipBackup(false);
+                    setPendingRecovery({ target, kind, replaced, storageBefore, prepared: null, donorInput: null, error: '' });
+                } catch (error) { setStorageError('No se puede leer el almacenamiento. No se ha cambiado ningún dato.'); }
+            };
+            const cancelRecovery = () => {
+                recoveryRequestRef.current++;
+                setRecoveryReading(false);
+                setPendingRecovery(null);
+            };
+            const handleRecoverySource = e => {
+                const file = e.target.files[0];
+                e.target.value = '';
+                if (!file || !pendingRecovery || recoveryReading) return;
+                const request = ++recoveryRequestRef.current;
+                setRecoveryReading(true);
+                setOriginalRecordConfirmed(false);
+                setPendingRecovery(previous => ({ ...previous, prepared: null, donorInput: null, error: '' }));
+                const reader = new FileReader();
+                reader.onload = event => {
+                    if (request !== recoveryRequestRef.current) return;
+                    try {
+                        const donorInput = event.target.result;
+                        const prepared = FamilyBackup.prepareFundRecovery(pendingRecovery.target, donorInput);
+                        setPendingRecovery(previous => previous && ({ ...previous, prepared, donorInput, error: '' }));
+                    } catch (error) {
+                        setPendingRecovery(previous => previous && ({ ...previous, prepared: null, error: error instanceof SyntaxError ? 'La copia de origen no es JSON válido.' : error.message }));
+                    } finally { setRecoveryReading(false); }
+                };
+                reader.onerror = () => {
+                    if (request !== recoveryRequestRef.current) return;
+                    setRecoveryReading(false);
+                    setPendingRecovery(previous => previous && ({ ...previous, prepared: null, error: 'No se pudo leer la copia original. No se ha cambiado ningún dato.' }));
+                };
+                reader.onabort = reader.onerror;
+                try { reader.readAsText(file); } catch (error) { reader.onerror(); }
+            };
+            const confirmRecovery = () => {
+                if (!pendingRecovery?.prepared || !originalRecordConfirmed || !(skipBackup || (backupRequested && backupConfirmed))) return;
+                try {
+                    if (JSON.stringify(FamilyBackup.readStorageSnapshot(window.localStorage)) !== JSON.stringify(pendingRecovery.storageBefore)) {
+                        throw new Error('El almacenamiento ha cambiado. Cancela y vuelve a revisar la recuperación.');
+                    }
+                    const recovered = FamilyBackup.prepareFundRecovery(pendingRecovery.target, pendingRecovery.donorInput);
+                    FamilyBackup.saveDataset(window.localStorage, recovered.data);
+                    dataRef.current = recovered.data;
+                    setData(recovered.data);
+                    setStorageError('');
+                    setRecoveryMode(false);
+                    cancelRecovery();
+                    setNotification('Recuperación guardada. Se han conservado los identificadores y las fotografías del conjunto revisado.');
+                } catch (error) {
+                    setPendingRecovery(previous => previous && ({ ...previous, error: `No se ha guardado ningún cambio. ${error.message}` }));
+                }
             };
 
             const handleImport = (e) => {
                 const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    try {
-                        const data = JSON.parse(event.target.result);
-                        if (typeof data !== 'object' || data === null) {
-                            throw new Error('El archivo no contiene un objeto JSON válido.');
-                        }
-
-                        // Solo se restaura cada bloque si viene en el formato esperado (array),
-                        // así un campo ausente o corrupto no rompe el resto de la importación.
-                        let imported = 0;
-                        if (Array.isArray(data.incomes)) { setIncomes(data.incomes); imported++; }
-                        if (Array.isArray(data.expenses)) { setExpenses(data.expenses); imported++; }
-                        if (Array.isArray(data.funds)) { setFunds(data.funds); imported++; }
-
-                        // Tabla 2 puede venir como bloque explícito o dentro de snapshots.
-                        // Si existe el bloque explícito, lo usamos para garantizar que no
-                        // se pierda ningún registro histórico.
-                        let importedSnapshots = Array.isArray(data.snapshots) ? data.snapshots : [];
-                        if (Array.isArray(data.tabla2EvolucionPatrimonial)) {
-                            const byDate = new Map(importedSnapshots.map(s => [s.date, s]));
-                            data.tabla2EvolucionPatrimonial.forEach(row => {
-                                const existing = byDate.get(row.date) || {
-                                    id: `snap_${row.date}`,
-                                    date: row.date,
-                                    liquidity: row.patrimonio != null && row.cartera != null
-                                        ? row.patrimonio - row.cartera : null,
-                                    fundsData: {},
-                                    summaryOnly: true
-                                };
-                                const hasOwnFundsData = existing.fundsData && Object.values(existing.fundsData).some(fd => (fd?.ingreso || fd?.value));
-                                const rowHasRealData = row.ingresoTotal != null || row.rf != null || row.rv != null || row.cartera != null || row.patrimonio != null;
-                                // Si la fotografía ya trae su propio desglose por fondo (fundsData) y esta fila
-                                // de Tabla 2 no aporta datos (todo null, típico de una actualización recién
-                                // guardada y aún no recalculada), no la pisamos: dejamos que la app calcule
-                                // los totales a partir de fundsData, que es la fuente más fiable.
-                                if (!existing.table2 && !hasOwnFundsData) {
-                                    existing.table2 = {
-                                        ingresoTotal: row.ingresoTotal ?? null,
-                                        rf: row.rf ?? null,
-                                        rv: row.rv ?? null,
-                                        cartera: row.cartera ?? null,
-                                        patrimonio: row.patrimonio ?? null,
-                                        diffCartera: row.diffCartera ?? null,
-                                        diffCarteraPct: row.diffCarteraPct ?? null,
-                                        diffPatrimonio: row.diffPatrimonio ?? null,
-                                        diffPatrimonioPct: row.diffPatrimonioPct ?? null
-                                    };
-                                    existing.summary = {
-                                        ingresoTotal: row.ingresoTotal ?? null,
-                                        rf: row.rf ?? null,
-                                        rv: row.rv ?? null,
-                                        cartera: row.cartera ?? null,
-                                        patrimonio: row.patrimonio ?? null
-                                    };
-                                }
-                                byDate.set(row.date, existing);
-                            });
-                            importedSnapshots = Array.from(byDate.values())
-                                .sort((a,b) => b.date.localeCompare(a.date));
-                        }
-
-                        if (importedSnapshots.length) {
-                            setSnapshots(importedSnapshots);
-                            imported++;
-                        }
-
-                        if (imported === 0) {
-                            setNotification("❌ Error: El archivo no contiene datos reconocibles.");
-                        } else {
-                            setNotification(`Datos restaurados correctamente. Tabla 2: ${importedSnapshots.length} registros.`);
-                        }
-                    } catch (err) {
-                        console.error("Error al importar copia de seguridad:", err);
-                        setNotification("❌ Error: El archivo no es válido.");
-                    }
-                };
-                reader.onerror = () => setNotification("❌ Error: No se pudo leer el archivo.");
-                reader.readAsText(file);
                 e.target.value = '';
+                if (!file || readingImport || pendingImport || pendingRecovery) return;
+                setReadingImport(true);
+                const reader = new FileReader();
+                reader.onload = event => {
+                    const input = event.target.result;
+                    try {
+                        const prepared = FamilyBackup.prepareRestore(input, dataRef.current);
+                        if (recoveryMode && prepared.replaced.length !== FamilyBackup.BLOCKS.length) {
+                            throw new Error('El almacenamiento original no se pudo leer. Para evitar perder bloques desconocidos, restaura una copia completa con ingresos, gastos, fondos y fotografías.');
+                        }
+                        const storageBefore = FamilyBackup.readStorageSnapshot(window.localStorage);
+                        setBackupRequested(false);
+                        setBackupConfirmed(false);
+                        setSkipBackup(false);
+                        setPendingImport({ input, prepared, storageBefore });
+                    } catch (error) {
+                        try {
+                            const staged = FamilyBackup.prepareRestore(input, dataRef.current, { allowMissingReferences: true });
+                            if ((!recoveryMode || staged.replaced.length === FamilyBackup.BLOCKS.length) && FamilyBackup.findOrphans(staged.data).length) {
+                                beginRecovery(staged.data, 'import', staged.replaced);
+                                return;
+                            }
+                        } catch (diagnosticError) { /* Preserve the original validation error. */ }
+                        setNotification(`❌ No se ha importado ningún dato. ${error instanceof SyntaxError ? 'El archivo no es JSON válido.' : error.message}`);
+                    } finally { setReadingImport(false); }
+                };
+                reader.onerror = () => {
+                    setReadingImport(false);
+                    setNotification('❌ No se pudo leer el archivo. Los datos anteriores no se han modificado.');
+                };
+                reader.onabort = reader.onerror;
+                try { reader.readAsText(file); } catch (error) { reader.onerror(); }
+            };
+            const confirmImport = () => {
+                if (!pendingImport || !(skipBackup || (backupRequested && backupConfirmed))) return;
+                try {
+                    const restored = FamilyBackup.restore(window.localStorage, pendingImport.input, dataRef.current, pendingImport.storageBefore);
+                    dataRef.current = restored.data;
+                    setData(restored.data);
+                    setStorageError('');
+                    setRecoveryMode(false);
+                    setPendingImport(null);
+                    setNotification(`Datos restaurados y guardados correctamente. Fotografías: ${restored.data.snapshots.length}.`);
+                } catch (error) {
+                    setStorageError(`No se ha restaurado ningún dato. Comprueba el archivo, el espacio y los permisos de almacenamiento. ${error.message}`);
+                }
             };
 
             return (
@@ -1765,10 +1901,10 @@
                                     <span className="text-2xl">💼</span> Economía Familiar
                                 </h1>
                                 <div className="flex flex-wrap gap-2 items-center">
-                                    <button onClick={handleExport} className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs font-bold hover:bg-gray-200 shadow-sm border border-gray-300">⬇️ Exportar Datos</button>
+                                    <button onClick={downloadCurrentBackup} className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs font-bold hover:bg-gray-200 shadow-sm border border-gray-300">{recoveryMode ? '⬇️ Descargar almacenamiento original' : '⬇️ Exportar Datos'}</button>
                                     <label className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded text-xs font-bold hover:bg-blue-100 cursor-pointer shadow-sm border border-blue-200">
                                         ⬆️ Importar Datos
-                                        <input type="file" accept=".json" className="hidden" onChange={handleImport} />
+                                        <input type="file" accept=".json" className="hidden" onChange={handleImport} disabled={readingImport || Boolean(pendingImport) || Boolean(pendingRecovery)} />
                                     </label>
                                 </div>
                             </div>
@@ -1780,11 +1916,59 @@
                         </div>
                     </header>
 
-                    <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
+                    {storageError && <div role="alert" className="m-4 p-4 border border-red-400 bg-red-50 text-red-900 rounded">{storageError}</div>}
+                    {orphanFunds.length > 0 && <div role="alert" className="m-4 p-4 border border-amber-500 bg-amber-50 space-y-2">
+                        <p>Hay fotografías con fondos ausentes. No se mostrarán cálculos de inversión como completos hasta resolver esas referencias. No se han borrado ni reparado datos.</p>
+                        <ul>{orphanFunds.map(row => <li key={row.id}>Identificador {row.id}: {row.dates.join(', ')}</li>)}</ul>
+                        <button type="button" onClick={()=>beginRecovery(dataRef.current)} className="px-3 py-2 border rounded">Revisar recuperación desde una copia original</button>
+                    </div>}
+                    {readingImport && <p role="status" className="m-4">Leyendo y validando la copia. Todavía no se ha cambiado ningún dato.</p>}
+                    <dialog ref={recoveryDialogRef} aria-labelledby="recovery-title" onCancel={cancelRecovery} className="rounded-xl p-6 max-w-2xl w-full shadow-xl backdrop:bg-black/50">
+                        {pendingRecovery && <div className="space-y-4">
+                            <h2 id="recovery-title" className="text-xl font-bold">Recuperar registros originales de fondos</h2>
+                            <p>{pendingRecovery.kind === 'import' ? 'El archivo seleccionado todavía no se ha restaurado. Solo se podrá restaurar completo después de resolver sus referencias.' : 'Los datos actuales permanecen intactos. Solo se añadirán los registros originales ausentes del catálogo.'}</p>
+                            {pendingRecovery.kind === 'import' && <ul className="list-disc pl-5">{FamilyBackup.BLOCKS.map(key => <li key={key}>{key}: {pendingRecovery.replaced.includes(key) ? `sustituir por ${pendingRecovery.target[key].length} registros` : 'conservar'}</li>)}</ul>}
+                            <ul>{FamilyBackup.findOrphans(pendingRecovery.target).map(row => <li key={row.id}>Falta el identificador {row.id} en {row.dates.join(', ')}.</li>)}</ul>
+                            <p>Selecciona otra copia fiable que conserve los registros originales completos y el mismo identificador. No se deducen fondos por el nombre ni se cambian fotografías.</p>
+                            <label className="block">Copia con el catálogo original<input type="file" accept=".json" onChange={handleRecoverySource} disabled={recoveryReading} className="block mt-2" /></label>
+                            {recoveryReading && <p role="status">Validando la copia de origen…</p>}
+                            {pendingRecovery.prepared && <div className="space-y-2">
+                                <p className="font-bold">Registros originales propuestos:</p>
+                                <ul>{pendingRecovery.prepared.additions.map(f => <li key={f.id}>{f.name} · ID {f.id} · {f.type} · {f.isin || 'Sin ISIN'} · inicio {f.start} · {f.gestora}</li>)}</ul>
+                                <label className="flex gap-2"><input type="checkbox" checked={originalRecordConfirmed} onChange={e=>setOriginalRecordConfirmed(e.target.checked)} />Confirmo que proceden de la copia original correcta. No se sustituirán registros existentes ni se recalcularán cifras históricas.</label>
+                            </div>}
+                            <button type="button" onClick={downloadCurrentBackup} className="px-3 py-2 border rounded">Descargar copia del estado actual antes de cambiarlo</button>
+                            {backupRequested && <label className="flex gap-2"><input type="checkbox" checked={backupConfirmed} onChange={e=>setBackupConfirmed(e.target.checked)} />He comprobado que el archivo se ha guardado.</label>}
+                            <label className="flex gap-2"><input type="checkbox" checked={skipBackup} onChange={e=>setSkipBackup(e.target.checked)} />Prefiero continuar sin descargar otra copia del estado actual.</label>
+                            {pendingRecovery.error && <p role="alert" className="text-red-800">{pendingRecovery.error}</p>}
+                            <p>Si no existe el registro original, faltan datos o hay discrepancias, conserva las copias sin modificarlas: se necesita intervención.</p>
+                            <div className="flex gap-3"><button type="button" onClick={cancelRecovery} className="px-4 py-2 border rounded">Cancelar</button><button type="button" onClick={confirmRecovery} disabled={!pendingRecovery.prepared || !originalRecordConfirmed || !(skipBackup || (backupRequested && backupConfirmed))} className="px-4 py-2 rounded bg-blue-700 text-white disabled:opacity-50">{pendingRecovery.kind === 'import' ? 'Recuperar registros y restaurar la copia' : 'Recuperar registros del catálogo'}</button></div>
+                        </div>}
+                    </dialog>
+                    <dialog ref={importDialogRef} aria-labelledby="restore-title" onCancel={() => setPendingImport(null)} className="rounded-xl p-6 max-w-xl w-full shadow-xl backdrop:bg-black/50">
+                        {pendingImport && <div className="space-y-4">
+                            <h2 id="restore-title" className="text-xl font-bold">Revisar restauración JSON</h2>
+                            <p>La copia es válida. Se sustituirán los bloques indicados, aunque estén vacíos. Los bloques ausentes conservarán sus datos actuales.</p>
+                            <ul className="list-disc pl-5">
+                                {FamilyBackup.BLOCKS.map(key => <li key={key}>{({ incomes: 'Ingresos', expenses: 'Gastos', funds: 'Fondos', snapshots: 'Fotografías' })[key]}: {pendingImport.prepared.replaced.includes(key) ? `sustituir por ${pendingImport.prepared.data[key].length} registros` : 'conservar sin cambios'}</li>)}
+                            </ul>
+                            <p>Antes de sustituir datos, conserva una copia recuperable en un lugar privado.</p>
+                            {recoveryMode && <p>La descarga conserva el almacenamiento original sin modificar. Si está dañado, necesitará revisión para recuperarlo; no es una copia JSON lista para importar.</p>}
+                            <button type="button" onClick={downloadCurrentBackup} className="px-4 py-2 border rounded">{recoveryMode ? 'Descargar almacenamiento original' : 'Descargar copia de los datos actuales'}</button>
+                            {backupRequested && <label className="flex gap-2 items-start"><input type="checkbox" checked={backupConfirmed} onChange={e => setBackupConfirmed(e.target.checked)} />He comprobado que el archivo se ha guardado.</label>}
+                            <label className="flex gap-2 items-start"><input type="checkbox" checked={skipBackup} onChange={e => setSkipBackup(e.target.checked)} />Prefiero continuar sin descargar una copia. Entiendo que sustituiré los datos indicados.</label>
+                            {storageError && <p role="alert" className="text-red-800">{storageError}</p>}
+                            <div className="flex gap-3">
+                                <button type="button" onClick={() => setPendingImport(null)} className="px-4 py-2 border rounded">Cancelar</button>
+                                <button type="button" onClick={confirmImport} disabled={!(skipBackup || (backupRequested && backupConfirmed))} className="px-4 py-2 bg-blue-700 text-white rounded disabled:opacity-50">Restaurar datos</button>
+                            </div>
+                        </div>}
+                    </dialog>
+                    {!recoveryMode && <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
                         {activeTab === 'ingresos' && <IngresosTab incomes={incomes} addIncome={addIncome} updateIncome={updateIncome} deleteIncome={deleteIncome} showMessage={setNotification} />}
                         {activeTab === 'gastos' && <GastosTab expenses={expenses} addExpense={addExpense} updateExpense={updateExpense} deleteExpense={deleteExpense} incomes={incomes} showMessage={setNotification} />}
-                        {activeTab === 'inversiones' && <InversionesTab funds={funds} setFunds={setFunds} snapshots={snapshots} addSnapshot={addSnapshot} updateSnapshot={updateSnapshot} deleteSnapshot={deleteSnapshot} showMessage={setNotification} />}
-                    </main>
+                        {activeTab === 'inversiones' && (orphanFunds.length ? <p>El desglose de inversión está pendiente de recuperar los registros originales indicados en el aviso.</p> : <InversionesTab funds={funds} setFunds={setFunds} snapshots={snapshots} addSnapshot={addSnapshot} updateSnapshot={updateSnapshot} deleteSnapshot={deleteSnapshot} showMessage={setNotification} />)}
+                    </main>}
                 </div>
             );
         };

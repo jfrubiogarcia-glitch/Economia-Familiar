@@ -1,0 +1,4 @@
+{
+  "incomes": [{ "id": "ingreso-invalida", "date": "2026-10", "owner": "Juan", "concept": "NO DEBE IMPORTARSE", "amount": 999 }],
+  "tabla2EvolucionPatrimonial": [null]
+}
