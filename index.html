@@ -13,6 +13,7 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <!-- Chart.js para gráficas -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="./monthly-balance.js"></script>
     <script src="./backup.js"></script>
     
     <style>
@@ -45,7 +46,11 @@
 <body>
     <div id="root"></div>
 
-    <script type="text/babel">
+    <script>
+        // React is loaded as a browser global; do not emit bare module imports.
+        Babel.registerPreset('economia-react', { presets: [[Babel.availablePresets.react, { runtime: 'classic' }]] });
+    </script>
+    <script type="text/babel" data-presets="env,economia-react">
         const { useState, useEffect, useMemo, useRef } = React;
 
         const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -1605,6 +1610,108 @@
             );
         };
 
+        const BalanceMensualTab = ({ data, saveBalance, showMessage }) => {
+            const M = FamilyMonthlyBalance;
+            const today = new Date();
+            const [month, setMonth] = useState(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`);
+            const [fundText, setFundText] = useState('');
+            const [liquidityText, setLiquidityText] = useState('');
+            const [entries, setEntries] = useState([]);
+            const [note, setNote] = useState('');
+            const [reviewed, setReviewed] = useState(false);
+            const loadedDraft = useRef('');
+            const saved = (data.monthlyBalances || []).find(row => row.month === month);
+            const sources = JSON.stringify(M.monthEntries(data, month).map(row => [row.key, row.source]));
+            useEffect(() => {
+                const fund = saved ? formatAmount(saved.fundSavings) : '';
+                const liquidity = saved ? formatAmount(saved.liquiditySavings) : '';
+                const decisions = saved?.entries || [];
+                const memo = saved?.note || '';
+                setFundText(fund); setLiquidityText(liquidity); setEntries(decisions); setNote(memo);
+                try { setReviewed(Boolean(saved && M.calculate(data, month, saved).reviewed)); }
+                catch (error) { setReviewed(false); }
+                loadedDraft.current = JSON.stringify([fund, liquidity, decisions, memo]);
+            }, [month, saved, sources]);
+            const dirty = loadedDraft.current !== JSON.stringify([fundText, liquidityText, entries, note]);
+            const draft = { month, fundSavings: parseAmount(fundText), liquiditySavings: parseAmount(liquidityText), entries, reviewedAgainst: null, note };
+            let result, annual, savedNeedsReview = false, calculationError = '';
+            try { result = M.calculate(data, month, draft); annual = M.yearSummary(data, month.slice(0, 4)); savedNeedsReview = Boolean(saved?.reviewedAgainst && !M.calculate(data, month, saved).reviewed); }
+            catch (error) { calculationError = error.message; }
+            const labels = { income: 'Ingresos incluidos', expenses: 'Gastos registrados incluidos', fundSavings: 'Ahorro neto en fondos y planes', liquiditySavings: 'Ahorro neto en liquidez', totalSavings: 'Ahorro neto total', totalExpense: 'Gasto total estimado', unitemized: 'Gasto no desglosado estimado' };
+            const actionLabels = { income: 'Ingreso real: incluir', expense: 'Gasto real registrado: incluir', saving: 'Ahorro real: excluir de gastos', internal: 'Transferencia interna: excluir', withdrawal: 'Retirada de ahorro: excluir de ingresos' };
+            const changeAction = (item, action) => {
+                setEntries(previous => [...previous.filter(entry => M.key(entry.block, entry.id) !== item.key), { block: item.block, id: item.row.id, source: item.source, action }]);
+                setReviewed(false);
+            };
+            const changeMonth = value => {
+                if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) return;
+                if (dirty && !window.confirm('Hay cambios sin guardar en el balance. ¿Cambiar de mes y descartarlos?')) return;
+                setMonth(value);
+            };
+            const handleSave = e => {
+                e.preventDefault();
+                if (!result?.hasInputs || calculationError) { showMessage('Introduce los dos importes de ahorro; escribe cero cuando corresponda.'); return; }
+                if (saveBalance(draft, reviewed) !== false) showMessage(reviewed ? 'Balance guardado y mes revisado. Los gastos calculados siguen siendo estimaciones.' : 'Balance guardado como pendiente de revisión.');
+            };
+            const chartData = annual ? { labels: annual.months.map(row => row.month), datasets: [
+                { label: 'Gasto estimado: mes revisado', data: annual.months.map(row => row.reviewed ? row.totalExpense : null), borderColor: '#2563eb', spanGaps: false },
+                { label: 'Gasto estimado: pendiente', data: annual.months.map(row => !row.reviewed && row.hasInputs ? row.totalExpense : null), borderColor: '#d97706', borderDash: [6, 4], spanGaps: false },
+                { label: 'Gastos registrados incluidos', data: annual.months.map(row => row.hasInputs ? row.expenses : null), borderColor: '#dc2626', spanGaps: false },
+                { label: 'Ahorro neto total', data: annual.months.map(row => row.hasInputs ? row.totalSavings : null), borderColor: '#059669', spanGaps: false }
+            ] } : null;
+            return (
+                <div className="space-y-6">
+                    <section className="bg-white p-5 rounded-xl border space-y-3">
+                        <h2 className="text-xl font-bold">Balance mensual familiar</h2>
+                        <p>Dos importes mensuales, sin registrar cada compra. Se utiliza el mes de cobro o cargo. Registrado no significa conciliado bancariamente: el gasto total y la diferencia no desglosada son siempre estimaciones.</p>
+                        <p>Excluye de ambos importes los traspasos de ahorro ya existente entre cuentas, fondos y liquidez y las revalorizaciones. Una retirada destinada a consumo reduce el ahorro neto; una retirada que sigue ahorrada en otra cuenta es un movimiento interno.</p>
+                        <form onSubmit={handleSave} className="space-y-4">
+                            <label className="block">Mes<input type="month" value={month} onChange={e=>changeMonth(e.target.value)} className="block border rounded p-2" required /></label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <label>Ahorro neto nuevo en fondos y planes (€)<AmountInput aria-label="Ahorro neto en fondos y planes" value={fundText} onChange={e=>{setFundText(e.target.value);setReviewed(false);}} className="block w-full p-2 border rounded" placeholder="Sin dato; introduce 0 si es cero" required /></label>
+                                <label>Ahorro neto nuevo en liquidez (€)<AmountInput aria-label="Ahorro neto en liquidez" value={liquidityText} onChange={e=>{setLiquidityText(e.target.value);setReviewed(false);}} className="block w-full p-2 border rounded" placeholder="Sin dato; introduce 0 si es cero" required /></label>
+                            </div>
+                            <p>Se admiten importes negativos. No se rellenan desde valoraciones de inversiones ni desde el concepto Ahorro. Los importes vacíos no se convierten en cero.</p>
+                            <details open={Boolean(result?.unresolved.length || result?.orphanDecisions.length)} className="border rounded p-3">
+                                <summary className="font-bold cursor-pointer">Revisar apuntes existentes y evitar duplicidades</summary>
+                                <p>Los apuntes Ahorro requieren una decisión explícita: solo se excluyen si confirmas ahorro real o movimiento interno. Si una retirada ya aparece como ingreso, márcala aquí y contémplala una sola vez en tus importes netos. No se modifican las pestañas originales.</p>
+                                <div className="space-y-3 mt-3">{result?.treatments.map(item => <label key={item.key} className="block p-2 border rounded">
+                                    <span>{item.block === 'incomes' ? 'Ingreso' : 'Gasto'} · {item.row.concept} · {formatCurrency(item.row.amount)}{item.stale ? ' · Modificado: revisar de nuevo' : ''}</span>
+                                    <select aria-label={`Tratamiento de ${item.row.concept} (${item.block}, ${item.row.id})`} value={item.action || ''} onChange={e=>changeAction(item, e.target.value)} className="block w-full mt-1 border p-2 rounded">
+                                        <option value="" disabled>Pendiente: identifica el movimiento</option>
+                                        {M.ACTIONS[item.block].map(action => <option key={action} value={action}>{actionLabels[action]}</option>)}
+                                    </select>
+                                </label>)}</div>
+                                {result?.orphanDecisions.length > 0 && <button type="button" onClick={()=>{const keys=new Set(M.monthEntries(data,month).map(row=>row.key));setEntries(previous=>previous.filter(entry=>keys.has(M.key(entry.block,entry.id))));setReviewed(false);}} className="mt-3 border p-2 rounded">Descartar decisiones de apuntes que ya no existen</button>}
+                            </details>
+                            {calculationError && <p role="alert" className="text-red-800">{calculationError}</p>}
+                            {result?.warnings.length > 0 && <div role="alert" className="p-3 bg-amber-50 border rounded"><ul className="list-disc pl-5">{result.warnings.map(message=><li key={message}>{message}</li>)}</ul></div>}
+                            {savedNeedsReview && <p role="status">La revisión anterior ya no corresponde a estos datos. El mes vuelve a estar pendiente; no se han cambiado sus importes guardados.</p>}
+                            <label className="block">Nota opcional<textarea value={note} onChange={e=>setNote(e.target.value)} className="block w-full border p-2 rounded" /></label>
+                            <label className="flex gap-2 items-start"><input type="checkbox" checked={reviewed} disabled={!result?.canReview} onChange={e=>setReviewed(e.target.checked)} />He revisado ingresos, ahorro, movimientos y advertencias: las transferencias y retiradas no suman ingresos reales y las retiradas destinadas a consumo figuran una sola vez en el ahorro neto. No quedan importes pendientes de conciliar. Esto no convierte las estimaciones en gastos confirmados.</label>
+                            <div className="flex flex-wrap gap-3 items-center"><button type="submit" disabled={!result?.hasInputs || Boolean(calculationError)} className="px-4 py-2 rounded bg-blue-700 text-white disabled:opacity-50">Guardar balance</button><span>{dirty ? 'Vista previa: cambios sin guardar' : 'Importes guardados; consulta el estado del mes en la tabla anual'}</span></div>
+                        </form>
+                    </section>
+                    <section className="bg-white border rounded-xl p-5 space-y-3">
+                        <h3 className="font-bold">Resumen de {month}{dirty ? ' (vista previa)' : ''}</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">{M.METRICS.map(metric=><div key={metric} className="p-3 bg-gray-50 rounded"><p>{labels[metric]}</p><p className="text-xl font-bold">{formatOptionalCurrency(result?.[metric])}</p></div>)}</div>
+                        <p>Fórmulas: ahorro total = fondos + liquidez; gasto estimado = ingresos incluidos − ahorro total; no desglosado estimado = gasto estimado − gastos registrados incluidos.</p>
+                        {result && <p>Apuntes originales: ingresos {formatCurrency(result.rawIncome)} y gastos/ahorro {formatCurrency(result.rawExpenses)}. Incluidos tras tu revisión: {formatCurrency(result.income)} y {formatCurrency(result.expenses)}. No se añaden gastos automáticamente por la diferencia.</p>}
+                    </section>
+                    {annual && <section className="bg-white border rounded-xl p-5 space-y-4">
+                        <h3 className="font-bold">Evolución y acumulado de {month.slice(0,4)}</h3>
+                        <p>{annual.count}/12 meses revisados · {annual.pending} guardados pendientes. Los totales usan únicamente los mismos meses revisados para todos los conceptos.</p>
+                        <p className="text-lg font-bold">Media mensual de gasto estimado: {formatOptionalCurrency(annual.averageExpense)} · divisor: {annual.count || 'sin meses revisados'}</p>
+                        <SimpleChart data={chartData} />
+                        <div className="overflow-x-auto table-scroll"><table className="w-full text-sm text-right"><thead><tr><th className="p-2">Mes</th>{M.METRICS.map(metric=><th key={metric} className="p-2">{labels[metric]}</th>)}<th className="p-2">Estado</th></tr></thead>
+                            <tbody>{annual.months.map(row=><tr key={row.month}><td className="p-2"><button type="button" onClick={()=>changeMonth(row.month)} className="text-blue-700 underline">{row.month}</button></td>{M.METRICS.map(metric=><td key={metric} className="p-2">{formatOptionalCurrency(!row.hasRecord && !row.treatments.length ? null : row[metric])}</td>)}<td className="p-2">{!row.hasRecord ? 'Sin balance' : row.reviewed ? 'Revisado · estimaciones' : row.needsReview ? 'Reabrir revisión' : 'Pendiente'}</td></tr>)}</tbody>
+                            <tfoot><tr className="font-bold"><td className="p-2">Acumulado de {annual.count} meses revisados</td>{M.METRICS.map(metric=><td key={metric} className="p-2">{formatOptionalCurrency(annual.totals[metric])}</td>)}<td></td></tr></tfoot>
+                        </table></div>
+                    </section>}
+                </div>
+            );
+        };
+
         const App = () => {
             const [activeTab, setActiveTab] = useState('ingresos');
             const [notification, setNotification] = useState('');
@@ -1628,7 +1735,7 @@
             const [backupConfirmed, setBackupConfirmed] = useState(false);
             const [skipBackup, setSkipBackup] = useState(false);
             const importDialogRef = useRef(null);
-            const { incomes, expenses, snapshots, funds } = data;
+            const { incomes, expenses, snapshots, funds, monthlyBalances = [] } = data;
             const orphanFunds = FamilyBackup.findOrphans(data);
             useEffect(() => {
                 const dialog = importDialogRef.current;
@@ -1665,6 +1772,21 @@
             const setExpenses = update => updateBlock('expenses', update);
             const setFunds = update => updateBlock('funds', update);
             const setSnapshots = update => updateBlock('snapshots', update);
+            const saveMonthlyBalance = (input, reviewed) => {
+                try {
+                    if (JSON.stringify(FamilyBackup.loadDataset(window.localStorage)) !== JSON.stringify(dataRef.current)) {
+                        setStorageError('Los datos han cambiado en otra ventana. No se ha guardado el balance; conserva tus importes y recarga antes de volver a revisarlo.');
+                        return false;
+                    }
+                } catch (error) {
+                    setStorageError('No se puede comprobar el almacenamiento. No se ha guardado el balance ni modificado los datos anteriores.');
+                    return false;
+                }
+                try {
+                    const record = FamilyMonthlyBalance.prepareRecord(dataRef.current, input, reviewed);
+                    return updateBlock('monthlyBalances', rows => [...(rows || []).filter(row => row.month !== record.month), record].sort((a, b) => a.month.localeCompare(b.month)));
+                } catch (error) { setNotification(error.message); return false; }
+            };
 
             const addIncome = (inc) => setIncomes(prev => [...prev, inc].sort((a,b)=>b.date.localeCompare(a.date)));
             const updateIncome = (updatedInc) => setIncomes(prev => prev.map(i => i.id === updatedInc.id ? updatedInc : i).sort((a,b)=>b.date.localeCompare(a.date)));
@@ -1715,7 +1837,7 @@
 
             const handleExport = () => {
                 if (FamilyBackup.findOrphans({ funds, snapshots }).length) {
-                    return downloadJSON({ incomes, expenses, snapshots, funds }, 'Original_Con_Referencias_Pendientes.json');
+                    return downloadJSON({ backupVersion: 2, incomes, expenses, snapshots, funds, monthlyBalances }, 'Original_Con_Referencias_Pendientes.json');
                 }
                 const sortedSnapsDesc = snapshots.slice().sort((a,b) => b.date.localeCompare(a.date));
                 const tabla2EvolucionPatrimonial = sortedSnapsDesc.map((s, idx) => {
@@ -1736,7 +1858,7 @@
                         diffCartera, diffCarteraPct, diffPatrimonio, diffPatrimonioPct
                     };
                 });
-                const data = { incomes, expenses, snapshots, funds, tabla2EvolucionPatrimonial };
+                const data = { backupVersion: 2, incomes, expenses, snapshots, funds, monthlyBalances, tabla2EvolucionPatrimonial };
                 return downloadJSON(data, 'CopiaSeguridad_EconomiaFamiliar.json');
             };
 
@@ -1849,8 +1971,8 @@
                     const input = event.target.result;
                     try {
                         const prepared = FamilyBackup.prepareRestore(input, dataRef.current);
-                        if (recoveryMode && prepared.replaced.length !== FamilyBackup.BLOCKS.length) {
-                            throw new Error('El almacenamiento original no se pudo leer. Para evitar perder bloques desconocidos, restaura una copia completa con ingresos, gastos, fondos y fotografías.');
+                        if (recoveryMode && !FamilyBackup.requiredRecoveryBlocks(window.localStorage).every(key => prepared.replaced.includes(key))) {
+                            throw new Error('El almacenamiento original no se pudo leer. Restaura una copia completa; si existe un registro consolidado ilegible debe incluir también monthlyBalances para no perder balances desconocidos.');
                         }
                         const storageBefore = FamilyBackup.readStorageSnapshot(window.localStorage);
                         setBackupRequested(false);
@@ -1860,7 +1982,7 @@
                     } catch (error) {
                         try {
                             const staged = FamilyBackup.prepareRestore(input, dataRef.current, { allowMissingReferences: true });
-                            if ((!recoveryMode || staged.replaced.length === FamilyBackup.BLOCKS.length) && FamilyBackup.findOrphans(staged.data).length) {
+                            if ((!recoveryMode || FamilyBackup.requiredRecoveryBlocks(window.localStorage).every(key => staged.replaced.includes(key))) && FamilyBackup.findOrphans(staged.data).length) {
                                 beginRecovery(staged.data, 'import', staged.replaced);
                                 return;
                             }
@@ -1912,6 +2034,7 @@
                                 <button onClick={() => setActiveTab('ingresos')} className={`pb-3 px-1 transition-colors whitespace-nowrap ${activeTab === 'ingresos' ? 'tab-active' : 'tab-inactive'}`}>Ingresos</button>
                                 <button onClick={() => setActiveTab('gastos')} className={`pb-3 px-1 transition-colors whitespace-nowrap ${activeTab === 'gastos' ? 'tab-active' : 'tab-inactive'}`}>Gastos</button>
                                 <button onClick={() => setActiveTab('inversiones')} className={`pb-3 px-1 transition-colors whitespace-nowrap ${activeTab === 'inversiones' ? 'tab-active' : 'tab-inactive'}`}>Cartera de Inversión</button>
+                                <button onClick={() => setActiveTab('balance')} className={`pb-3 px-1 transition-colors whitespace-nowrap ${activeTab === 'balance' ? 'tab-active' : 'tab-inactive'}`}>Balance mensual familiar</button>
                             </nav>
                         </div>
                     </header>
@@ -1927,7 +2050,7 @@
                         {pendingRecovery && <div className="space-y-4">
                             <h2 id="recovery-title" className="text-xl font-bold">Recuperar registros originales de fondos</h2>
                             <p>{pendingRecovery.kind === 'import' ? 'El archivo seleccionado todavía no se ha restaurado. Solo se podrá restaurar completo después de resolver sus referencias.' : 'Los datos actuales permanecen intactos. Solo se añadirán los registros originales ausentes del catálogo.'}</p>
-                            {pendingRecovery.kind === 'import' && <ul className="list-disc pl-5">{FamilyBackup.BLOCKS.map(key => <li key={key}>{key}: {pendingRecovery.replaced.includes(key) ? `sustituir por ${pendingRecovery.target[key].length} registros` : 'conservar'}</li>)}</ul>}
+                            {pendingRecovery.kind === 'import' && <ul className="list-disc pl-5">{FamilyBackup.ALL_BLOCKS.map(key => <li key={key}>{key}: {pendingRecovery.replaced.includes(key) ? `sustituir por ${pendingRecovery.target[key].length} registros` : 'conservar'}</li>)}</ul>}
                             <ul>{FamilyBackup.findOrphans(pendingRecovery.target).map(row => <li key={row.id}>Falta el identificador {row.id} en {row.dates.join(', ')}.</li>)}</ul>
                             <p>Selecciona otra copia fiable que conserve los registros originales completos y el mismo identificador. No se deducen fondos por el nombre ni se cambian fotografías.</p>
                             <label className="block">Copia con el catálogo original<input type="file" accept=".json" onChange={handleRecoverySource} disabled={recoveryReading} className="block mt-2" /></label>
@@ -1950,8 +2073,9 @@
                             <h2 id="restore-title" className="text-xl font-bold">Revisar restauración JSON</h2>
                             <p>La copia es válida. Se sustituirán los bloques indicados, aunque estén vacíos. Los bloques ausentes conservarán sus datos actuales.</p>
                             <ul className="list-disc pl-5">
-                                {FamilyBackup.BLOCKS.map(key => <li key={key}>{({ incomes: 'Ingresos', expenses: 'Gastos', funds: 'Fondos', snapshots: 'Fotografías' })[key]}: {pendingImport.prepared.replaced.includes(key) ? `sustituir por ${pendingImport.prepared.data[key].length} registros` : 'conservar sin cambios'}</li>)}
+                                {FamilyBackup.ALL_BLOCKS.map(key => <li key={key}>{({ incomes: 'Ingresos', expenses: 'Gastos', funds: 'Fondos', snapshots: 'Fotografías', monthlyBalances: 'Balances mensuales' })[key]}: {pendingImport.prepared.replaced.includes(key) ? `sustituir por ${pendingImport.prepared.data[key].length} registros` : 'conservar sin cambios'}</li>)}
                             </ul>
+                            {!pendingImport.prepared.replaced.includes('monthlyBalances') && monthlyBalances.length > 0 && <p>La copia anterior no contiene balances: se conservan. Si cambian sus ingresos o gastos, su revisión quedará pendiente automáticamente.</p>}
                             <p>Antes de sustituir datos, conserva una copia recuperable en un lugar privado.</p>
                             {recoveryMode && <p>La descarga conserva el almacenamiento original sin modificar. Si está dañado, necesitará revisión para recuperarlo; no es una copia JSON lista para importar.</p>}
                             <button type="button" onClick={downloadCurrentBackup} className="px-4 py-2 border rounded">{recoveryMode ? 'Descargar almacenamiento original' : 'Descargar copia de los datos actuales'}</button>
@@ -1967,6 +2091,7 @@
                     {!recoveryMode && <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
                         {activeTab === 'ingresos' && <IngresosTab incomes={incomes} addIncome={addIncome} updateIncome={updateIncome} deleteIncome={deleteIncome} showMessage={setNotification} />}
                         {activeTab === 'gastos' && <GastosTab expenses={expenses} addExpense={addExpense} updateExpense={updateExpense} deleteExpense={deleteExpense} incomes={incomes} showMessage={setNotification} />}
+                        {activeTab === 'balance' && <BalanceMensualTab data={data} saveBalance={saveMonthlyBalance} showMessage={setNotification} />}
                         {activeTab === 'inversiones' && (orphanFunds.length ? <p>El desglose de inversión está pendiente de recuperar los registros originales indicados en el aviso.</p> : <InversionesTab funds={funds} setFunds={setFunds} snapshots={snapshots} addSnapshot={addSnapshot} updateSnapshot={updateSnapshot} deleteSnapshot={deleteSnapshot} showMessage={setNotification} />)}
                     </main>}
                 </div>

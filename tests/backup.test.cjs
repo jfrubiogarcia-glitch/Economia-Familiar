@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const Backup = require('../backup.js');
+const MonthlyBalance = require('../monthly-balance.js');
 
 // All names, amounts and histories in this suite are invented fixtures.
 const fixture = () => ({
@@ -178,7 +179,7 @@ function appHarness(storage, fileFailure = false, downloadFailure = false, defer
     const slots = [], downloads = [], reads = [];
     let cursor = 0;
     const context = {
-        FamilyBackup: Backup, window: { localStorage: storage },
+        FamilyBackup: Backup, FamilyMonthlyBalance: MonthlyBalance, window: { localStorage: storage },
         useState(initial) {
             const index = cursor++;
             if (!(index in slots)) slots[index] = typeof initial === 'function' ? initial() : initial;
@@ -197,7 +198,7 @@ function appHarness(storage, fileFailure = false, downloadFailure = false, defer
         document: { body: { appendChild() {} }, createElement: () => ({ click() {}, remove() {} }) },
         setTimeout() {},
     };
-    const expose = 'return { handleImport, confirmImport, downloadCurrentBackup, addIncome, deleteSnapshot, beginRecovery, cancelRecovery, handleRecoverySource, confirmRecovery, setOriginalRecordConfirmed, pendingRecovery, setSkipBackup, setBackupConfirmed, pendingImport, notification, storageError, recoveryMode, getData: () => dataRef.current };';
+    const expose = 'return { handleImport, confirmImport, downloadCurrentBackup, saveMonthlyBalance, addIncome, deleteSnapshot, beginRecovery, cancelRecovery, handleRecoverySource, confirmRecovery, setOriginalRecordConfirmed, pendingRecovery, setSkipBackup, setBackupConfirmed, pendingImport, notification, storageError, recoveryMode, getData: () => dataRef.current };';
     const renderApp = vm.runInNewContext('(function () {' + html.slice(start, end) + expose + '})', context);
     return { render() { cursor = 0; return renderApp(); }, downloads, finishRead() { assert(reads.length); reads.shift()(); } };
 }
@@ -215,7 +216,7 @@ test('UI handlers require a deliberate backup choice; download alone does not re
     app.confirmImport();
     assert.deepEqual(storage.writes, []);
     const exported = JSON.parse(await ui.downloads[0].text());
-    assert.deepEqual(Backup.prepareRestore(exported, Backup.emptyDataset()).data, fixture());
+    assert.deepEqual(Backup.prepareRestore(exported, Backup.emptyDataset()).data, { ...fixture(), monthlyBalances: [] });
     app.setBackupConfirmed(true);
     ui.render().confirmImport();
     assert.deepEqual(Backup.loadDataset(storage), Backup.emptyDataset());
@@ -576,4 +577,104 @@ test('a contradictory sidecar summary cannot replace an explicitly zero archived
     assert.deepEqual(Backup.loadDataset(storage), data);
 });
 
+const monthlyInput = (changes = {}) => ({ month: '2026-01', fundSavings: 30, liquiditySavings: 20, entries: [], reviewedAgainst: null, note: 'Solo datos ficticios', ...changes });
+
+test('monthly application handler persists one reviewed record and preserves original accounts and history', () => {
+    const data = fixture(), storage = legacyStorage(data), ui = appHarness(storage);
+    assert.equal(ui.render().saveMonthlyBalance(monthlyInput(), true), true);
+    const loaded = Backup.loadDataset(storage);
+    assert.deepEqual(Object.fromEntries(Backup.BLOCKS.map(k => [k, loaded[k]])), data);
+    assert.equal(loaded.monthlyBalances.length, 1);
+    assert(MonthlyBalance.calculate(loaded, '2026-01').reviewed);
+    assert.equal(JSON.parse(storage.getItem(Backup.STORAGE_KEY)).storageVersion, 2);
+});
+
+test('monthly handler updates only the selected month without duplicating it or deleting other balances', () => {
+    const storage = legacyStorage(fixture()), ui = appHarness(storage);
+    ui.render().saveMonthlyBalance(monthlyInput(), true);
+    ui.render().saveMonthlyBalance(monthlyInput({ month: '2026-02', fundSavings: 0, liquiditySavings: 0 }), false);
+    ui.render().saveMonthlyBalance(monthlyInput({ fundSavings: 40 }), false);
+    const loaded = Backup.loadDataset(storage);
+    assert.equal(loaded.monthlyBalances.length, 2);
+    assert.equal(loaded.monthlyBalances.find(row => row.month === '2026-01').fundSavings, 40);
+    assert.equal(loaded.monthlyBalances.find(row => row.month === '2026-02').fundSavings, 0);
+});
+
+test('monthly save write/read failures never change memory or source storage', () => {
+    for (const failure of ['failWrite', 'failRead']) {
+        const data = fixture(), storage = legacyStorage(data), ui = appHarness(storage);
+        ui.render(); storage[failure] = true;
+        assert.equal(ui.render().saveMonthlyBalance(monthlyInput(), true), false);
+        assert.deepEqual(ui.render().getData(), data);
+        assert.deepEqual(storage.writes, []);
+        assert(ui.render().storageError);
+    }
+});
+
+test('monthly save detects a newer stored dataset instead of overwriting another window', () => {
+    const data = fixture(), storage = legacyStorage(data), ui = appHarness(storage);
+    ui.render(); const newer = clone(data); newer.incomes[0].amount = 101;
+    Backup.saveDataset(storage, newer);
+    assert.equal(ui.render().saveMonthlyBalance(monthlyInput(), true), false);
+    assert.deepEqual(ui.render().getData(), data);
+    assert.deepEqual(Backup.loadDataset(storage), newer);
+    assert.match(ui.render().storageError, /otra ventana/);
+});
+
+test('actual export/download and a fresh application load preserve monthly inputs, review and note', async () => {
+    const storage = legacyStorage(fixture()), ui = appHarness(storage);
+    ui.render().saveMonthlyBalance(monthlyInput(), true);
+    ui.render().downloadCurrentBackup();
+    const exported = JSON.parse(await ui.downloads[0].text());
+    assert.equal(exported.backupVersion, 2);
+    assert.deepEqual(exported.monthlyBalances, clone(ui.render().getData().monthlyBalances));
+    const restoredStorage = legacyStorage(Backup.emptyDataset());
+    Backup.restore(restoredStorage, exported, Backup.emptyDataset());
+    const reloaded = appHarness(restoredStorage).render().getData();
+    assert.deepEqual(reloaded.monthlyBalances, exported.monthlyBalances);
+    assert(MonthlyBalance.calculate(reloaded, '2026-01').reviewed);
+});
+
+test('old four-block import preserves balances but invalidates their review when income changes', () => {
+    const storage = legacyStorage(fixture()), ui = appHarness(storage);
+    ui.render().saveMonthlyBalance(monthlyInput(), true);
+    const originalRecord = clone(ui.render().getData().monthlyBalances[0]);
+    const olderFile = fixture(); olderFile.incomes[0].amount = 110;
+    choose(ui.render(), olderFile);
+    assert.equal(ui.render().pendingImport.prepared.replaced.includes('monthlyBalances'), false);
+    ui.render().setSkipBackup(true); ui.render().confirmImport();
+    const loaded = Backup.loadDataset(storage);
+    assert.deepEqual(loaded.monthlyBalances[0], originalRecord);
+    assert.equal(MonthlyBalance.calculate(loaded, '2026-01').reviewed, false);
+    assert.equal(MonthlyBalance.calculate(loaded, '2026-01').totalExpense, 60);
+});
+
+test('new complete empty file clears all five blocks through the actual confirmation handler', () => {
+    const storage = legacyStorage(fixture()), ui = appHarness(storage);
+    ui.render().saveMonthlyBalance(monthlyInput(), true);
+    choose(ui.render(), { ...Backup.emptyDataset(), backupVersion: 2, monthlyBalances: [] });
+    assert.equal(ui.render().pendingImport.prepared.replaced.length, 5);
+    ui.render().setSkipBackup(true); ui.render().confirmImport();
+    assert.deepEqual(Backup.loadDataset(storage), { ...Backup.emptyDataset(), monthlyBalances: [] });
+});
+
+test('invalid monthly block never partially imports otherwise valid source changes', () => {
+    const data = fixture(), storage = legacyStorage(data), ui = appHarness(storage);
+    choose(ui.render(), { incomes: [], monthlyBalances: [{ month: '2026-01' }] });
+    assert.equal(ui.render().pendingImport, null); assert.equal(ui.render().pendingRecovery, null);
+    assert.deepEqual(ui.render().getData(), data); assert.deepEqual(storage.writes, []);
+});
+
+test('unreadable consolidated storage requires an explicit monthly block to avoid losing unknown balances', () => {
+    const storage = legacyStorage(fixture()); storage.values.set(Backup.STORAGE_KEY, '{broken fictitious consolidated data');
+    const ui = appHarness(storage);
+    choose(ui.render(), fixture());
+    assert.equal(ui.render().pendingImport, null); assert.deepEqual(storage.writes, []);
+    assert.match(ui.render().notification, /monthlyBalances/);
+    choose(ui.render(), { ...fixture(), backupVersion: 2, monthlyBalances: [] });
+    ui.render().setSkipBackup(true); ui.render().confirmImport();
+    assert.deepEqual(Backup.loadDataset(storage), { ...fixture(), monthlyBalances: [] });
+});
+
 require('./fund-history.cases.cjs');
+require('./monthly-balance.cases.cjs');

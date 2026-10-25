@@ -1,12 +1,14 @@
 /* Validation, persistence and catalogue preservation. Financial formulas remain in index.html. */
 (function (root, factory) {
-    const api = factory();
+    const balance = typeof module === 'object' && module.exports ? require('./monthly-balance.js') : root.FamilyMonthlyBalance;
+    const api = factory(balance);
     if (typeof module === 'object' && module.exports) module.exports = api;
     else root.FamilyBackup = api;
-}(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+}(typeof globalThis !== 'undefined' ? globalThis : this, function (MonthlyBalance) {
     'use strict';
 
     const BLOCKS = ['incomes', 'expenses', 'funds', 'snapshots'];
+    const ALL_BLOCKS = [...BLOCKS, 'monthlyBalances'];
     const STORAGE_KEY = 'eco_public_blank_v4_dataset';
     const LEGACY_KEYS = Object.fromEntries(BLOCKS.map(k => [k, `eco_public_blank_v4_${k}`]));
     const FUND_IDENTITY = ['name', 'isin', 'type', 'start', 'gestora'];
@@ -64,6 +66,7 @@
         });
     };
     function validateBlock(key, value) {
+        if (key === 'monthlyBalances') return MonthlyBalance.validateRecords(value);
         records(value, key, (row, p) => {
             identifier(row.id, `${p}.id`);
             if (key === 'incomes' || key === 'expenses') {
@@ -101,6 +104,7 @@
     function validateDataset(data, checkReferences = true) {
         object(data, 'Datos');
         BLOCKS.forEach(k => validateBlock(k, data[k]));
+        if (has(data, 'monthlyBalances')) validateBlock('monthlyBalances', data.monthlyBalances);
         if (checkReferences) {
             const ids = new Set(data.funds.map(f => String(f.id)));
             data.snapshots.forEach((s, i) => Object.keys(s.fundsData || {}).forEach(id => {
@@ -116,7 +120,9 @@
     function prepareRestore(input, current, { allowMissingReferences = false } = {}) {
         const data = typeof input === 'string' ? JSON.parse(input) : input;
         object(data, 'Archivo');
-        const supplied = BLOCKS.filter(k => has(data, k));
+        if (has(data, 'backupVersion') && ![1, 2].includes(data.backupVersion)) fail('Archivo', 'versión de copia no reconocida.');
+        if (data.backupVersion === 2 && !has(data, 'monthlyBalances')) fail('Archivo', 'falta el bloque de balances de una copia versión 2.');
+        const supplied = ALL_BLOCKS.filter(k => has(data, k));
         const hasTable = has(data, 'tabla2EvolucionPatrimonial');
         if (!supplied.length && !hasTable) fail('Archivo', 'no contiene bloques reconocibles.');
         // Validate every supplied block before merging or touching application state.
@@ -127,6 +133,8 @@
         }, true);
 
         const candidate = Object.fromEntries(BLOCKS.map(k => [k, has(data, k) ? data[k] : current[k]]));
+        if (has(data, 'monthlyBalances')) candidate.monthlyBalances = data.monthlyBalances;
+        else if (has(current, 'monthlyBalances')) candidate.monthlyBalances = current.monthlyBalances;
         if (hasTable && !has(data, 'snapshots')) candidate.snapshots = [];
         if (has(data, 'funds') && !has(data, 'snapshots') && !hasTable) {
             current.funds.forEach(f => {
@@ -264,7 +272,8 @@
         let data;
         if (saved[STORAGE_KEY] !== null) {
             const envelope = JSON.parse(saved[STORAGE_KEY]);
-            if (!envelope || envelope.storageVersion !== 1) fail('Almacenamiento', 'formato local no reconocido; no se ha sobrescrito.');
+            if (!envelope || ![1, 2].includes(envelope.storageVersion)) fail('Almacenamiento', 'formato local no reconocido; no se ha sobrescrito.');
+            if (envelope.storageVersion === 2 && !has(envelope.data || {}, 'monthlyBalances')) fail('Almacenamiento', 'faltan los balances de la versión 2; no se ha sobrescrito.');
             data = envelope.data;
         } else data = Object.fromEntries(BLOCKS.map(k => [k, saved[LEGACY_KEYS[k]] === null ? [] : JSON.parse(saved[LEGACY_KEYS[k]])]));
         // Existing histories may contain orphan funds from the old deletion bug.
@@ -274,8 +283,19 @@
     function saveDataset(storage, data) {
         // Web Storage guarantees setItem is atomic on failure. A single key avoids
         // partial restores across four legacy keys, which are retained untouched.
-        const serialized = JSON.stringify({ storageVersion: 1, data });
+        const serialized = JSON.stringify({ storageVersion: has(data, 'monthlyBalances') ? 2 : 1, data });
         storage.setItem(STORAGE_KEY, serialized);
+    }
+    function requiredRecoveryBlocks(storage) {
+        // With unreadable consolidated data, balances may exist. Never replace
+        // that unknown content with an older backup that cannot preserve it.
+        const raw = storage.getItem(STORAGE_KEY);
+        if (raw === null) return BLOCKS;
+        try {
+            const envelope = JSON.parse(raw);
+            if (envelope?.storageVersion === 1 && envelope.data && typeof envelope.data === 'object' && !has(envelope.data, 'monthlyBalances')) return BLOCKS;
+        } catch (error) { /* The presence of monthly data cannot be established. */ }
+        return ALL_BLOCKS;
     }
     function restore(storage, input, current, expectedStorage) {
         const prepared = prepareRestore(input, current);
@@ -286,7 +306,7 @@
         return prepared;
     }
 
-    return { BLOCKS, STORAGE_KEY, LEGACY_KEYS, emptyDataset, validateDataset, prepareRestore,
+    return { BLOCKS, ALL_BLOCKS, STORAGE_KEY, LEGACY_KEYS, emptyDataset, validateDataset, prepareRestore,
         readStorageSnapshot, loadDataset, saveDataset, restore, findOrphans,
-        archiveEligibility, setFundArchived, referencedFund, prepareSnapshotFunds, prepareFundRecovery };
+        archiveEligibility, setFundArchived, referencedFund, prepareSnapshotFunds, prepareFundRecovery, requiredRecoveryBlocks };
 }));
