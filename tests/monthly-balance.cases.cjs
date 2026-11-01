@@ -276,7 +276,7 @@ function formHarness(initial, saveFails = false) {
         useRef(value) { const i = cursor++; if (!(i in slots)) slots[i] = { current: value }; return slots[i]; },
         useEffect(fn, deps) { const i = cursor++, previous = slots[i]; if (!previous || deps.some((value, j) => value !== previous[j])) { slots[i] = deps; effects.push(fn); } }
     };
-    const expose = 'return {handleSave,changeMonth,changeAction,setFundText,setLiquidityText,setEntries,setReviewed,fundText,liquidityText,entries,reviewed,result,annual,savedNeedsReview,dirty,setView,setReportYear,setEndMonth,view,comparison,chartData};';
+    const expose = 'return {handleSave,changeMonth,changeAction,setFundText,setLiquidityText,setEntries,setReviewed,fundText,liquidityText,entries,reviewed,result,annual,savedNeedsReview,dirty,setView,setReportYear,setEndMonth,view,comparison,chartData,saveError};';
     const render = vm.runInNewContext(html.slice(parseStart, parseEnd) + '(function({data,saveBalance,showMessage}){' + html.slice(start, end) + expose + '})', context);
     return { messages, writes, setData(value) { data = clone(value); }, getData: () => data,
         render() { cursor = 0; return render({ data, showMessage: text => messages.push(text), saveBalance(value, reviewed) {
@@ -327,6 +327,7 @@ test('form retains unsaved numbers and never announces success if persistence fa
     ui.render().handleSave({ preventDefault() {} });
     assert.equal(ui.render().fundText, '-200,00'); assert.equal(ui.render().liquidityText, '0,00');
     assert.equal(ui.writes.length, 0); assert.equal(ui.messages.length, 0);
+    assert.match(ui.render().saveError, /No se ha podido guardar/);
 });
 
 function reportingFixture() {
@@ -436,4 +437,37 @@ test('report graphs leave missing months null and distinguish reviewed and pendi
     assert.deepEqual(Array.from(chart.datasets[1].data), [null, 1100, null, null]);
     assert.deepEqual(Array.from(chart.datasets[3].data), [500, null, null, null]);
     assert.deepEqual(Array.from(chart.datasets[4].data), [null, -100, null, null]);
+});
+
+
+test('monthly save explains missing and malformed inputs, accepts explicit zero and retains drafts', () => {
+    const ui = formHarness(fixture()); openMonth(ui);
+    ui.render().setFundText('500,00');
+    ui.render().handleSave({ preventDefault() {} });
+    assert.match(ui.render().saveError, /Completa los dos importes/);
+    assert.equal(ui.writes.length, 0);
+    assert.equal(ui.render().fundText, '500,00');
+    ui.render().setLiquidityText('abc');
+    ui.render().handleSave({ preventDefault() {} });
+    assert.match(ui.render().saveError, /Completa los dos importes/);
+    assert.equal(ui.writes.length, 0);
+    ui.render().setLiquidityText('0');
+    ui.render().handleSave({ preventDefault() {} });
+    assert.equal(ui.render().saveError, '');
+    assert.equal(ui.writes.length, 1);
+    assert.equal(ui.getData().monthlyBalances[0].liquiditySavings, 0);
+});
+
+test('monthly month and year changes load their own saved amounts and clear save errors', () => {
+    const data = fixture();
+    data.monthlyBalances = [M.prepareRecord(data, input(), false)];
+    const ui = formHarness(data); openMonth(ui);
+    ui.render().changeMonth('2025-12'); ui.render(); ui.flushEffects();
+    assert.equal(ui.render().fundText, '');
+    ui.render().handleSave({ preventDefault() {} });
+    assert(ui.render().saveError);
+    ui.render().changeMonth(month); ui.render(); ui.flushEffects();
+    assert.equal(ui.render().fundText, '400,00');
+    assert.equal(ui.render().saveError, '');
+    assert.equal(ui.writes.length, 0);
 });
