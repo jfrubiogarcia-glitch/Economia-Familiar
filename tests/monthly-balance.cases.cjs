@@ -471,3 +471,11 @@ test('monthly month and year changes load their own saved amounts and clear save
     assert.equal(ui.render().saveError, '');
     assert.equal(ui.writes.length, 0);
 });
+
+
+test('empty monthly form is clean on first render and after loading effects', () => {
+    const ui = formHarness(fixture());
+    assert.equal(ui.render().dirty, false);
+    ui.flushEffects();
+    assert.equal(ui.render().dirty, false);
+});
