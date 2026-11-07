@@ -1639,7 +1639,7 @@
                 catch (error) { setReviewed(false); }
                 loadedDraft.current = JSON.stringify([fund, liquidity, decisions, memo]);
             }, [month, saved, sources]);
-            const dirty = loadedDraft.current !== JSON.stringify([fundText, liquidityText, entries, note]);
+            const dirty = JSON.stringify([fundText, liquidityText, entries, note]) !== JSON.stringify([saved ? formatAmount(saved.fundSavings) : '', saved ? formatAmount(saved.liquiditySavings) : '', saved?.entries || [], saved?.note || '']);
             const draft = { month, fundSavings: parseAmount(fundText), liquiditySavings: parseAmount(liquidityText), entries, reviewedAgainst: null, note };
             let result, annual, comparison = [], savedNeedsReview = false, calculationError = '';
             try { result = M.calculate(data, month, draft); annual = M.periodSummary(data, view === 'monthly' ? month.slice(0, 4) : reportYear, view === 'ytd' ? endMonth : 12); if (view === 'annual') comparison = M.compareYears(data, reportYear); savedNeedsReview = Boolean(saved?.reviewedAgainst && !M.calculate(data, month, saved).reviewed); }
