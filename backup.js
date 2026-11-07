@@ -82,6 +82,15 @@
                 if (has(row, 'archived') && typeof row.archived !== 'boolean') fail(`${p}.archived`, 'se esperaba verdadero o falso.');
             } else {
                 date(row.date, `${p}.date`);
+                if (has(row, 'investmentFlow')) {
+                    object(row.investmentFlow, `${p}.investmentFlow`);
+                    date(row.investmentFlow.fromDate, `${p}.investmentFlow.fromDate`);
+                    if (row.investmentFlow.fromDate >= row.date) fail(p, 'el inicio del flujo debe ser anterior al cierre.');
+                    ['contributions', 'withdrawals'].forEach(key => {
+                        number(row.investmentFlow[key], `${p}.investmentFlow.${key}`);
+                        if (row.investmentFlow[key] < 0 || Math.abs(row.investmentFlow[key] * 100 - Math.round(row.investmentFlow[key] * 100)) > 1e-6) fail(p, 'las entradas y salidas deben ser positivas o cero, con dos decimales.');
+                    });
+                }
                 if (has(row, 'summaryOnly') && typeof row.summaryOnly !== 'boolean') fail(`${p}.summaryOnly`, 'se esperaba verdadero o falso.');
                 if (has(row, 'liquidity')) number(row.liquidity, `${p}.liquidity`, true);
                 if (has(row, 'table2')) summary(row.table2, `${p}.table2`);

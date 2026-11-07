@@ -188,7 +188,7 @@ function investmentHarness(initial, { confirm = true, writeFails = false } = {})
     let data = clone(initial), cursor = 0;
     const slots = [], messages = [], saves = [];
     const context = {
-        FamilyBackup: Backup, generateId: () => 'new-photo', confirm: () => confirm,
+        FamilyPerformance: require('../investment-performance.js'), FamilyBackup: Backup, generateId: () => 'new-photo', confirm: () => confirm,
         useState(value) { const i = cursor++; if (!(i in slots)) slots[i] = typeof value === 'function' ? value() : value; return [slots[i], value => { slots[i] = typeof value === 'function' ? value(slots[i]) : value; }]; },
         useRef(value) { const i = cursor++; if (!(i in slots)) slots[i] = { current: value }; return slots[i]; },
         useEffect() {}, useMemo: fn => fn(), useSortableData: items => ({ items, requestSort() {} })
@@ -197,7 +197,7 @@ function investmentHarness(initial, { confirm = true, writeFails = false } = {})
     const begin = html.indexOf('        const InversionesTab = ');
     const start = html.indexOf('=> {', begin) + 4;
     const end = html.indexOf('\n            return (\n                <div className="space-y-6', start);
-    const expose = 'return {handleArchiveFund,handleReactivateFund,handleOpenEditFund,handleSaveFundModal,handleSaveSnapshot,setFundType,setSnapDate,setSnapFundsData,setArchivedValuesConfirmed,setEditingSnapId,activeFunds,archivedFunds};';
+    const expose = 'return {saveFlow,setFlowDraft,handleArchiveFund,handleReactivateFund,handleOpenEditFund,handleSaveFundModal,handleSaveSnapshot,setFundType,setSnapDate,setSnapFundsData,setArchivedValuesConfirmed,setEditingSnapId,activeFunds,archivedFunds};';
     const render = vm.runInNewContext(parsing + '(function({funds,snapshots,setFunds,showMessage,addSnapshot,updateSnapshot}) {' + html.slice(start, end) + expose + '})', context);
     return { messages, saves, getData: () => data, render() { cursor = 0; return render({ ...data,
         showMessage: text => messages.push(text),
@@ -247,4 +247,22 @@ test('investment handler cannot overwrite referenced fund classification from it
     ui.render().handleSaveFundModal({ preventDefault() {} });
     assert.deepEqual(ui.getData(), positive);
     assert(ui.messages.some(m => m.includes('histórico')));
+});
+
+
+test('verified interval form persists only after successful write and preserves original snapshot', () => {
+    const data = clone(positive);
+    const s = data.snapshots[0];
+    const h = investmentHarness(data);
+    let ui = h.render();
+    ui.setFlowDraft({id:s.id,date:s.date,from:'2024-01-01',contributions:'20,00',withdrawals:'0'});
+    ui = h.render(); ui.saveFlow({preventDefault(){}});
+    assert.equal(h.saves.length, 1);
+    assert.deepEqual(h.saves[0].fundsData, s.fundsData);
+    assert.equal(h.saves[0].investmentFlow.contributions,20);
+    assert.equal(h.saves[0].investmentFlow.withdrawals,0);
+    const failing = investmentHarness(data, {writeFails:true});
+    let blocked=failing.render(); blocked.setFlowDraft({id:s.id,date:s.date,from:'2024-01-01',contributions:'0',withdrawals:'0'});
+    blocked=failing.render(); blocked.saveFlow({preventDefault(){}});
+    assert.equal(failing.messages.length,0);
 });

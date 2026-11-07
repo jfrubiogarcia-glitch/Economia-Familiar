@@ -14,6 +14,7 @@
     <!-- Chart.js para gráficas -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="./monthly-balance.js"></script>
+    <script src="./investment-performance.js"></script>
     <script src="./backup.js"></script>
     
     <style>
@@ -1088,7 +1089,8 @@
                 let preservedFundsData;
                 try { preservedFundsData = FamilyBackup.prepareSnapshotFunds(fundDataset, parsedFundsData, editingSnapId, snapDate); }
                 catch (error) { showMessage(error.message); return; }
-                const newSnap = { id: editingSnapId || generateId(), date: snapDate, liquidity: parseAmount(snapLiquidity) || 0, fundsData: preservedFundsData };
+                const savedFlow = snapshots.find(s => s.id === editingSnapId)?.investmentFlow;
+                const newSnap = { ...(savedFlow ? {investmentFlow:savedFlow} : {}), id: editingSnapId || generateId(), date: snapDate, liquidity: parseAmount(snapLiquidity) || 0, fundsData: preservedFundsData };
                 if (editingSnapId) {
                     if (updateSnapshot(newSnap) === false) return;
                     showMessage("Fotografía actualizada correctamente");
@@ -1275,27 +1277,21 @@
 
             const [compareMode, setCompareMode] = useState('semanal');
             
-            const processedHistoryRows = useMemo(() => {
-                if (compareMode === 'semanal') return historyRows;
-                const map = {};
-                historyRows.forEach(r => {
-                    const key = compareMode === 'mensual' ? r.date.substring(0, 7) : r.date.substring(0, 4);
-                    if (!map[key] || r.date > map[key].date) map[key] = r;
-                });
-                const groupedArr = Object.values(map).sort((a,b) => b.date.localeCompare(a.date));
-                return groupedArr.map((snap, idx, arr) => {
-                    const nextSnap = arr[idx + 1];
-                    const prevCartera = nextSnap ? nextSnap.cartera : null;
-                    const prevPatrimonio = nextSnap ? nextSnap.patrimonio : null;
-                    const hasCartera = snap.cartera != null && prevCartera != null;
-                    const hasPatrimonio = snap.patrimonio != null && prevPatrimonio != null;
-                    const diffCartera = hasCartera ? snap.cartera - prevCartera : null;
-                    const pctCartera = hasCartera && prevCartera > 0 ? (diffCartera / prevCartera) * 100 : null;
-                    const diffPatrimonio = hasPatrimonio ? snap.patrimonio - prevPatrimonio : null;
-                    const pctPatrimonio = hasPatrimonio && prevPatrimonio > 0 ? (diffPatrimonio / prevPatrimonio) * 100 : null;
-                    return { ...snap, diffCartera, pctCartera, diffPatrimonio, pctPatrimonio };
-                });
-            }, [historyRows, compareMode]);
+            const processedHistoryRows = FamilyPerformance.periods(historyRows, snapshots, compareMode);
+            const [flowDraft, setFlowDraft] = useState(null);
+            const saveFlow = e => {
+                e.preventDefault();
+                const original = snapshots.find(s => s.id === flowDraft.id);
+                const contributions = parseAmount(flowDraft.contributions), withdrawals = parseAmount(flowDraft.withdrawals);
+                if (contributions == null || withdrawals == null || contributions < 0 || withdrawals < 0) { showMessage('Completa entradas y salidas, con 0 cuando corresponda.'); return; }
+                if (updateSnapshot({...original, investmentFlow: {fromDate:flowDraft.from, contributions, withdrawals}}) === false) return;
+                setFlowDraft(null); showMessage('Flujos del intervalo guardados. El balance familiar no se modifica.');
+            };
+            const resultChart = { labels: [...processedHistoryRows].reverse().map(r=>r.date), datasets:[
+                {label:'Cambio de saldo',data:[...processedHistoryRows].reverse().map(r=>r.diffCartera),backgroundColor:'#64748b'},
+                {label:'Entradas netas a cartera',data:[...processedHistoryRows].reverse().map(r=>r.netFlow),backgroundColor:'#3b82f6'},
+                {label:'Resultado de inversión (ver estado en tabla)',data:[...processedHistoryRows].reverse().map(r=>r.result),backgroundColor:'#0d9488'}
+            ]};
 
             const CHART_VARS = ['Ingreso Total', 'Renta Fija', 'Renta Variable', 'Cartera Total', 'Patrimonio Total'];
             const [selectedChartVars, setSelectedChartVars] = useState(['Ingreso Total', 'Cartera Total']);
@@ -1510,25 +1506,41 @@
                             </div>
                             <div className="flex gap-2 mt-3"><button className="bg-teal-700 text-white px-4 py-2 rounded">Guardar fila</button><button type="button" onClick={()=>setManualDraft(null)} className="bg-white border px-4 py-2 rounded">Cancelar</button></div>
                         </form>}
+                        <div className="p-4 text-sm space-y-2 bg-blue-50">
+                            <p><b>Saldo, aportaciones y resultado son conceptos distintos.</b> Resultado = cambio de cartera − entradas + salidas. Incluye fondos y planes; excluye liquidez. Los traspasos entre estos productos no son entradas ni salidas externas.</p>
+                            <p>El histórico se estima por diferencias del capital registrado. Puede incluir traspasos, correcciones o costes fiscales heredados: revisa los flujos antes de darlo por verificado. No es una rentabilidad porcentual.</p>
+                            <p>El balance familiar sigue midiendo ahorro nuevo mensual y anual. Invertir liquidez antigua es entrada a cartera, pero no ahorro nuevo: no se suman ambos registros. Incluye los abonos de planes una sola vez, cuando se produzcan.</p>
+                            <p>Mensual y anual comparan fotografías disponibles; consulta las fechas reales de inicio y fin. No equivalen necesariamente a cierres naturales y el periodo actual puede estar incompleto. Para revisar flujos elige Semanal.</p>
+                        </div>
+                        {flowDraft && <form onSubmit={saveFlow} className="p-4 bg-amber-50 space-y-3">
+                            <b>Revisar flujos: {flowDraft.from} → {flowDraft.date}</b>
+                            <p className="text-sm">Registra todas las entradas y salidas externas del intervalo (inicio excluido, cierre incluido). No incluyas traspasos entre fondos/planes. Guardar confirma que los importes están completos; no modifica tus saldos ni el balance familiar.</p>
+                            <label className="block">Entradas (€)<AmountInput aria-label="Entradas externas" value={flowDraft.contributions} onChange={e=>setFlowDraft({...flowDraft,contributions:e.target.value})} className="border p-2 rounded block" /></label>
+                            <label className="block">Salidas (€)<AmountInput aria-label="Salidas externas" value={flowDraft.withdrawals} onChange={e=>setFlowDraft({...flowDraft,withdrawals:e.target.value})} className="border p-2 rounded block" /></label>
+                            <button className="bg-teal-700 text-white rounded p-2">Confirmar flujos completos</button>
+                            <button type="button" onClick={()=>setFlowDraft(null)} className="border p-2 ml-2">Cancelar</button>
+                            <button type="button" className="border p-2 ml-2" onClick={()=>{const original=snapshots.find(s=>s.id===flowDraft.id); const {investmentFlow,...rest}=original; if(updateSnapshot(rest)!==false)setFlowDraft(null);}}>Quitar confirmación</button>
+                        </form>}
                         <div className="w-full overflow-x-auto table-scroll">
                             <table className="w-full text-xs text-right">
                                 <thead className="bg-white border-b sticky top-0 z-10 shadow-sm">
                                     <tr>
                                         <th className="px-4 py-3 text-left font-bold text-gray-700 bg-white">Fecha</th>
-                                        <th className="px-3 py-3 font-semibold text-gray-600 bg-white border-r text-right">Ingreso Total</th>
+                                        <th className="px-3 py-3 font-semibold text-gray-600 bg-white border-r text-right">Capital registrado (no ahorro)</th>
                                         <th className="px-3 py-3 font-semibold text-yellow-700 bg-yellow-50 text-right">Valor RF Mixta</th>
                                         <th className="px-3 py-3 font-semibold text-red-700 bg-red-50 text-right">Valor RV (+PP)</th>
                                         <th className="px-4 py-3 font-black text-blue-800 bg-blue-100 border-x text-right">CARTERA TOTAL</th>
                                         <th className="px-4 py-3 font-black text-teal-800 bg-teal-100 border-r text-right">PATRIMONIO TOTAL</th>
-                                        <th className="px-3 py-3 font-semibold text-gray-600 bg-white text-right">Dif. Cartera (€)</th>
-                                        <th className="px-3 py-3 font-semibold text-gray-600 bg-white border-r text-right">Dif. Cartera (%)</th>
+                                        <th className="px-3 py-3 font-semibold text-gray-600 bg-white text-right">Cambio de saldo cartera (€)</th>
+                                        <th className="px-3 py-3 font-semibold text-gray-600 bg-white border-r text-right">Variación de saldo (%)</th>
                                         <th className="px-3 py-3 font-semibold text-gray-600 bg-white text-right">Dif. Patrimonio (€)</th>
-                                        <th className="px-3 py-3 font-semibold text-gray-600 bg-white text-right">Dif. Patrimonio (%)</th>
+                                        <th className="px-3 py-3 font-semibold text-gray-600 bg-white text-right">Variación patrimonial (%)</th>
+                                        <th className="px-3 py-3">Desde</th><th className="px-3 py-3">Entradas netas (€)</th><th className="px-3 py-3">Ganancia / pérdida (€)</th><th className="px-3 py-3">Fiabilidad</th>
                                         <th className="px-2 py-3 bg-white"></th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
-                                    {processedHistoryRows.length === 0 ? <tr><td colSpan="11" className="text-center py-6 text-gray-400">Sin registros</td></tr> :
+                                    {processedHistoryRows.length === 0 ? <tr><td colSpan="15" className="text-center py-6 text-gray-400">Sin registros</td></tr> :
                                         processedHistoryRows.map(row => (
                                             <tr key={row.id} className="hover:bg-gray-50">
                                                 <td className="px-4 py-2 font-bold text-left text-gray-700">{row.date}</td>
@@ -1541,6 +1553,10 @@
                                                 <td className={`px-3 py-2 font-bold border-r text-right ${row.pctCartera >= 0 ? 'text-green-600' : 'text-red-600'}`}>{row.pctCartera == null ? '—' : (row.pctCartera > 0 ? '+' : '') + formatPercent(row.pctCartera)}</td>
                                                 <td className={`px-3 py-2 font-medium text-right ${row.diffPatrimonio >= 0 ? 'text-green-600' : 'text-red-600'}`}>{row.diffPatrimonio == null ? '—' : (row.diffPatrimonio > 0 ? '+' : '') + formatCurrency(row.diffPatrimonio)}</td>
                                                 <td className={`px-3 py-2 font-bold text-right ${row.pctPatrimonio >= 0 ? 'text-green-600' : 'text-red-600'}`}>{row.pctPatrimonio == null ? '—' : (row.pctPatrimonio > 0 ? '+' : '') + formatPercent(row.pctPatrimonio)}</td>
+                                                <td className="px-3 py-2">{row.from || '—'}</td>
+                                                <td className="px-3 py-2">{formatOptionalCurrency(row.netFlow)}</td>
+                                                <td className={`px-3 py-2 font-bold ${row.result < 0 ? 'text-red-700' : 'text-teal-800'}`}>{formatOptionalCurrency(row.result)}</td>
+                                                <td className="px-3 py-2">{row.status}{compareMode === 'semanal' && row.from && <button type="button" className="block border rounded p-1 mt-1" onClick={()=>{const original=snapshots.find(s=>s.id===row.id);const f=original.investmentFlow;setFlowDraft({id:row.id,date:row.date,from:row.from,contributions:f?.fromDate===row.from?formatAmount(f.contributions):'',withdrawals:f?.fromDate===row.from?formatAmount(f.withdrawals):''});}}>Revisar flujos</button>}</td>
                                                 <td className="px-2 py-2 flex items-center gap-1">
                                                     <button onClick={()=>{
                                                         const targetSnap = snapshots.find(s => s.id === row.id);
@@ -1564,9 +1580,10 @@
                         </div>
                     </div>
 
+                    <div className="bg-white p-4 rounded-xl border"><h2 className="font-bold mb-2">Aportaciones y resultado por intervalo</h2><p className="text-sm mb-3">Mismo periodo y fiabilidad que la tabla. Los huecos no representan cero. Las estimaciones requieren revisión.</p><SimpleChart data={resultChart} type="bar" /></div>
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 w-full">
                         <h2 className="text-lg font-bold mb-4 text-gray-800 flex items-center gap-2">
-                            <span>📈</span> Gráfica de Evolución
+                            <span>📈</span> Gráfica de saldos (incluyen aportaciones)
                         </h2>
                         <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6 space-y-4">
                             <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-start sm:items-end">
