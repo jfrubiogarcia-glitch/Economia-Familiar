@@ -16,3 +16,18 @@ const d={incomes:[],expenses:[],funds:[],snapshots:[{id:'s',date:'2026-10-31',su
  for(const bad of [NaN,-1,0.001,'2']){const c=structuredClone(d);c.snapshots[0].investmentFlow.contributions=bad;assert.throws(()=>B.validateDataset(c));}
  const c=structuredClone(d);c.snapshots[0].investmentFlow.fromDate='2026-10-31';assert.throws(()=>B.validateDataset(c));
 });
+
+test('result chart excludes the initial capital and intervals before June 2026',()=>{
+ const fs=require('node:fs'),vm=require('node:vm');
+ const html=fs.readFileSync(require('node:path').join(__dirname,'../index.html'),'utf8');
+ const start=html.indexOf('            const resultChartRows =');
+ const end=html.indexOf('            const CHART_VARS',start);
+ const chart=vm.runInNewContext('(function(){'+html.slice(start,end)+'return resultChart;})()',{
+ processedHistoryRows:[
+ {date:'2026-06-19',from:'2026-06-12',diffCartera:10,netFlow:5,result:5},
+ {date:'2026-06-12',from:'2026-01-01',diffCartera:1000,netFlow:900,result:100},
+ {date:'2026-01-01',from:null,diffCartera:10000,netFlow:10000,result:null}
+ ]});
+ assert.deepEqual(Array.from(chart.labels),['2026-06-19']);
+ assert.deepEqual(Array.from(chart.datasets,d=>Array.from(d.data)).flat(),[10,5,5]);
+});
