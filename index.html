@@ -16,7 +16,7 @@
     <script src="./monthly-balance.js"></script>
     <script src="./investment-performance.js"></script>
     <script src="./backup.js"></script>
-    
+
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; background-color: #f3f4f6; }
         .tab-active { border-bottom: 2px solid #2563eb; color: #2563eb; font-weight: 600; }
@@ -55,7 +55,7 @@
         const { useState, useEffect, useMemo, useRef } = React;
 
         const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
-        
+
         // Formatos numéricos europeos (Punto para miles, Coma para decimales) EXCEPTO AÑOS
         const formatCurrency = (value) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(value || 0);
         const formatPercent = (value) => new Intl.NumberFormat('de-DE', { style: 'percent', minimumFractionDigits: 2 }).format((value || 0) / 100);
@@ -94,7 +94,7 @@
                 if (!chartRef.current) return;
                 if (chartInstance.current) chartInstance.current.destroy();
                 const ctx = chartRef.current.getContext('2d');
-                
+
                 const defaultOptions = { 
                     responsive: true, 
                     maintainAspectRatio: false, 
@@ -202,7 +202,7 @@
                         if (bVal === undefined) bVal = '';
                         if (typeof aVal === 'string') aVal = aVal.toLowerCase();
                         if (typeof bVal === 'string') bVal = bVal.toLowerCase();
-                        
+
                         if (aVal < bVal) return sortConfig.direction === 'ascending' ? -1 : 1;
                         if (aVal > bVal) return sortConfig.direction === 'ascending' ? 1 : -1;
                         return 0;
@@ -225,7 +225,7 @@
         const IngresosTab = ({ incomes, addIncome, updateIncome, deleteIncome, showMessage }) => {
             const currentYearStr = new Date().getFullYear().toString();
             const currentMonthStr = (new Date().getMonth() + 1).toString().padStart(2, '0');
-            
+
             const [selectedYearInput, setSelectedYearInput] = useState(currentYearStr);
             const [selectedMonthInput, setSelectedMonthInput] = useState(currentMonthStr);
             const [owner, setOwner] = useState('Juan');
@@ -235,7 +235,7 @@
             const [editingId, setEditingId] = useState(null);
 
             const [selectedYear, setSelectedYear] = useState(currentYearStr);
-            
+
             const historicalAmounts = useMemo(() => {
                 const amounts = incomes.map(i => i.amount);
                 return [...new Set(amounts)].sort((a, b) => b - a);
@@ -290,7 +290,7 @@
                 if (!amount) return;
                 const finalConcept = concept === 'Otros' ? customConcept : concept;
                 if (!finalConcept) return;
-                
+
                 const fullDate = `${selectedYearInput}-${selectedMonthInput}`;
 
                 if (editingId) {
@@ -327,7 +327,7 @@
 
             const months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
             const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-            
+
             const yearIncomes = incomes.filter(i => i.date.startsWith(selectedYear));
             const tableMap = {};
             yearIncomes.forEach(inc => {
@@ -362,7 +362,7 @@
                 if (pA !== pB) return pA - pB;
                 return a.concept.localeCompare(b.concept);
             });
-            
+
             const monthlyTotals = {};
             let grandTotal = 0;
             months.forEach(m => {
@@ -565,7 +565,7 @@
                                     </div>
                                 </div>
                                 <button onClick={()=>{setChartStartYear('2020'); setChartEndYear(currentYearStr); setChartStartMonth('01'); setChartEndMonth('12');}} className="text-xs font-bold text-blue-600 hover:underline mb-1">Ver todo el histórico</button>
-                                
+
                                 <div className="sm:ml-auto flex flex-wrap items-center gap-4 bg-white p-2 border rounded shadow-sm w-full sm:w-auto">
                                     <label className="flex items-center gap-1 text-sm font-medium cursor-pointer"><input type="checkbox" checked={selectedOwners.includes('Juan')} onChange={()=>handleToggleOwner('Juan')} className="w-4 h-4 text-blue-600" /> Juan</label>
                                     <label className="flex items-center gap-1 text-sm font-medium cursor-pointer"><input type="checkbox" checked={selectedOwners.includes('Vanessa')} onChange={()=>handleToggleOwner('Vanessa')} className="w-4 h-4 text-pink-600" /> Vanessa</label>
@@ -626,7 +626,7 @@
                 "Club 79", "Prime Video", "Lotería", "Educo", "Cole", "Inglés", "Vacaciones", 
                 "Máster", "Fútbol", "Baloncesto", "Reyes", "Pilates", "Google"
             ];
-            
+
             const [selectedYearInput, setSelectedYearInput] = useState(currentYearStr);
             const [selectedMonthInput, setSelectedMonthInput] = useState(currentMonthStr);
             const [concept, setConcept] = useState(PREDEFINED_EXPENSES[0]);
@@ -642,7 +642,7 @@
             const [chartStartMonth, setChartStartMonth] = useState('01');
             const [chartEndMonth, setChartEndMonth] = useState('12');
             const [splitByConcept, setSplitByConcept] = useState(false);
-            
+
             const historicalAmounts = useMemo(() => {
                 const amounts = expenses.map(e => e.amount);
                 return [...new Set(amounts)].sort((a, b) => b - a);
@@ -651,7 +651,7 @@
             const allConcepts = useMemo(() => [...new Set([...PREDEFINED_EXPENSES, ...expenses.map(e => e.concept)])].sort(), [expenses]);
             const allUsedConcepts = useMemo(() => [...new Set(expenses.map(e => e.concept))].sort(), [expenses]);
             const [selectedConcepts, setSelectedConcepts] = useState([]);
-            
+
             const initializedConcepts = useRef(false);
             useEffect(() => {
                 if (!initializedConcepts.current && allUsedConcepts.length > 0) {
@@ -691,7 +691,7 @@
                 if (!amount) return;
                 const finalConcept = concept === 'Otros' ? customConcept : concept;
                 if (!finalConcept) return;
-                
+
                 const fullDate = `${selectedYearInput}-${selectedMonthInput}`;
 
                 if (editingId) {
@@ -733,7 +733,7 @@
 
             const months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
             const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-            
+
             const getValidMonthsForPeriod = (period) => {
                 if (period === 'Q1') return ['01', '02', '03'];
                 if (period === 'Q2') return ['04', '05', '06'];
@@ -812,7 +812,7 @@
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                             <div>
                                 <h2 className="text-xl font-bold flex items-center gap-2"><span>🧮</span> Gasto Corriente Disponible</h2>
-                                <p className="text-gray-400 text-sm mt-1">Calcula cuánto sobra para gastos del día a día tras descontar los fijos y el ahorro.</p>
+
                             </div>
                             <div className="flex items-center gap-2 bg-gray-800 p-2 rounded-lg border border-gray-700 w-full sm:w-auto">
                                 <label className="text-sm font-bold text-gray-300">Mes a consultar:</label>
@@ -1030,7 +1030,7 @@
             const [selectedYear, setSelectedYear] = useState(currentYearStr);
             const detailedSnaps = snapshots.filter(s => !s.summaryOnly && (Object.keys(s.fundsData || {}).length > 0 || (!s.table2 && !s.summary)));
             const latestSnap = detailedSnaps.length > 0 ? detailedSnaps.reduce((latest, s) => s.date > latest.date ? s : latest) : null;
-            
+
             const [snapDate, setSnapDate] = useState(new Date().toISOString().slice(0, 10));
             const [snapLiquidity, setSnapLiquidity] = useState(0);
             const [snapFundsData, setSnapFundsData] = useState({});
@@ -1176,7 +1176,7 @@
 
             const totalCartera = table1Rows.reduce((acc, r) => acc + r.val, 0);
             const totalIngreso = table1Rows.reduce((acc, r) => acc + r.ing, 0);
-            
+
             const totalRVandPP_Val = table1Rows.filter(r => r.type.includes('Variable') || r.name.toLowerCase().includes('pensiones')).reduce((acc, r) => acc + r.val, 0);
             const totalRVandPP_Ing = table1Rows.filter(r => r.type.includes('Variable') || r.name.toLowerCase().includes('pensiones')).reduce((acc, r) => acc + r.ing, 0);
 
@@ -1276,7 +1276,7 @@
             };
 
             const [compareMode, setCompareMode] = useState('semanal');
-            
+
             const processedHistoryRows = FamilyPerformance.periods(historyRows, snapshots, compareMode);
             const [flowDraft, setFlowDraft] = useState(null);
             const saveFlow = e => {
@@ -1287,10 +1287,11 @@
                 if (updateSnapshot({...original, investmentFlow: {fromDate:flowDraft.from, contributions, withdrawals}}) === false) return;
                 setFlowDraft(null); showMessage('Flujos del intervalo guardados. El balance familiar no se modifica.');
             };
-            const resultChart = { labels: [...processedHistoryRows].reverse().map(r=>r.date), datasets:[
-                {label:'Cambio de saldo',data:[...processedHistoryRows].reverse().map(r=>r.diffCartera),backgroundColor:'#64748b'},
-                {label:'Entradas netas a cartera',data:[...processedHistoryRows].reverse().map(r=>r.netFlow),backgroundColor:'#3b82f6'},
-                {label:'Resultado de inversión (ver estado en tabla)',data:[...processedHistoryRows].reverse().map(r=>r.result),backgroundColor:'#0d9488'}
+            const resultChartRows = [...processedHistoryRows].reverse().filter(r => r.date >= '2026-06-01' && r.from >= '2026-06-01');
+            const resultChart = { labels: resultChartRows.map(r=>r.date), datasets:[
+                {label:'Cambio de saldo',data:resultChartRows.map(r=>r.diffCartera),backgroundColor:'#64748b'},
+                {label:'Entradas netas a cartera',data:resultChartRows.map(r=>r.netFlow),backgroundColor:'#3b82f6'},
+                {label:'Resultado de inversión (ver estado en tabla)',data:resultChartRows.map(r=>r.result),backgroundColor:'#0d9488'}
             ]};
 
             const CHART_VARS = ['Ingreso Total', 'Renta Fija', 'Renta Variable', 'Cartera Total', 'Patrimonio Total'];
@@ -1363,7 +1364,7 @@
                                 </div>
                                 {archivedFunds.length > 0 && <div className="mt-4 p-3 border rounded bg-amber-50 space-y-2">
                                     <p className="font-bold">Valores registrados de fondos archivados</p>
-                                    <p>No son fondos activos. Fuente: fotografía {editingSnapId ? snapshots.find(s => s.id === editingSnapId)?.date : latestSnap?.date || 'sin datos'}. Al editar se conserva su desglose original. Para una nueva fotografía, revisa expresamente los valores mostrados; no se registran ventas ni retiradas.</p>
+
                                     {archivedFunds.map(f => <p key={f.id}>{f.name}: ingreso {formatOptionalCurrency(snapFundsData[f.id]?.ingreso)}, valor {formatOptionalCurrency(snapFundsData[f.id]?.value)}</p>)}
                                     {!editingSnapId && <label className="flex gap-2"><input type="checkbox" checked={archivedValuesConfirmed} onChange={e=>setArchivedValuesConfirmed(e.target.checked)} />He revisado estos valores registrados y confirmo que siguen siendo los de esta nueva fotografía.</label>}
                                 </div>}
@@ -1375,7 +1376,7 @@
                         </details>
                         {archivedFunds.length > 0 && <details className="mt-4 border-t pt-3">
                             <summary className="font-bold">Fondos archivados actualmente ({archivedFunds.length})</summary>
-                            <p>Sus registros siguen disponibles para calcular el histórico.</p>
+
                             {archivedFunds.map(f => <div key={f.id} className="p-2 border-b"><div className="flex justify-between gap-3"><span>{f.name} · {f.type} · {f.isin}</span><button type="button" onClick={()=>handleReactivateFund(f.id)} className="text-blue-700 underline">Reactivar</button></div>{!FamilyBackup.archiveEligibility(fundDataset, f.id).allowed && <p role="alert">Estado incompatible: su último valor no es cero o no consta. Conserva el histórico y reactiva el fondo para revisar nuevos registros; no se pondrá a cero automáticamente.</p>}</div>)}
                         </details>}
                     </div>
@@ -1384,7 +1385,6 @@
                         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                             <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full fade-in">
                                 <h3 className="text-lg font-bold text-teal-900 mb-4">{editingFund ? 'Editar Fondo' : 'Añadir Nuevo Fondo'}</h3>
-                                {fundRecordLocked && <p>Este fondo tiene fotografías. Sus datos identificativos y su clasificación original ({editingFund.type}) se conservan; puedes archivarlo si su último valor registrado es cero.</p>}
                                 <form onSubmit={handleSaveFundModal} className="space-y-4">
                                     <div><label className="block text-xs font-bold text-gray-600 uppercase mb-1">Nombre del Fondo</label><input type="text" value={fundName} disabled={fundRecordLocked} onChange={e=>setFundName(e.target.value)} className="w-full p-2 border rounded" required /></div>
                                     <div><label className="block text-xs font-bold text-gray-600 uppercase mb-1">ISIN</label><input type="text" value={fundIsin} disabled={fundRecordLocked} onChange={e=>setFundIsin(e.target.value)} className="w-full p-2 border rounded" placeholder="Ej: ES0140072010 o N5116" /></div>
@@ -1400,7 +1400,7 @@
                                         </select>
                                     </div>
                                     <div><label className="block text-xs font-bold text-gray-600 uppercase mb-1">Gestora</label><input type="text" value={fundGestora} disabled={fundRecordLocked} onChange={e=>setFundGestora(e.target.value)} className="w-full p-2 border rounded" required /></div>
-                                    
+
                                     <div className="flex gap-2 pt-2">
                                         <button type="submit" className="flex-1 bg-teal-600 text-white p-2 rounded font-bold hover:bg-teal-700">Guardar Fondo</button>
                                         {editingFund && <button type="button" onClick={()=>handleArchiveFund(editingFund.id)} className="px-4 bg-amber-100 text-amber-900 rounded font-bold">Archivar</button>}
@@ -1420,7 +1420,7 @@
                             </div>
                         </div>
                         <label className="flex gap-2 p-3"><input type="checkbox" checked={showArchivedHistory} onChange={e=>setShowArchivedHistory(e.target.checked)} />Mostrar fondos archivados actualmente en el desglose histórico</label>
-                        <p className="px-3 pb-3 text-sm">Los cálculos del período incluyen el catálogo completo, también los archivados. El filtro solo cambia las filas visibles.</p>
+
                         <div className="w-full overflow-x-auto table-scroll">
                             <table className="w-full text-xs text-right funds-table">
                                 <thead className="bg-gray-100 border-b">
@@ -1476,7 +1476,7 @@
                                             <td className="px-2 py-3 text-right">{formatCurrency(totalRVandPP_Ing)}</td>
                                             <td className="px-2 py-3 text-right">-</td>
                                             <td className="px-2 py-3 text-right text-indigo-900">{formatCurrency(totalRVandPP_Val)}</td>
-                                            <td colSpan="8" className="px-2 py-3 text-left text-gray-500 font-normal">Exposición bursátil combinada (RV + PP)</td>
+                                            <td colSpan="8" className="px-2 py-3 text-left text-gray-500 font-normal"></td>
                                         </tr>
                                     </tfoot>
                                 )}
@@ -1499,22 +1499,16 @@
                         </div>
                         {manualDraft && <form ref={manualFormRef} onSubmit={saveManual} className="p-4 bg-teal-50 border-b">
                             <h3 className="font-bold mb-2">{manualDraft.id ? 'Editar fila manual' : 'Nueva fila manual'}</h3>
-                            <p className="text-sm mb-3">Rellena solo los datos que conozcas. Los campos vacíos se mostrarán como —. Las diferencias vacías se calculan si existen los dos totales necesarios.</p>
+
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <label className="text-sm">Fecha<input aria-label="Fecha de fila manual" type="date" required value={manualDraft.date} onChange={e=>setManualDraft({...manualDraft,date:e.target.value})} className="block w-full p-2 border rounded" /></label>
                                 {MANUAL_FIELDS.map(([key,label])=><label key={key} className="text-sm">{label}<AmountInput aria-label={label} value={manualDraft[key]} onChange={e=>setManualDraft({...manualDraft,[key]:e.target.value})} className="block w-full p-2 border rounded" placeholder="Sin dato" /></label>)}
                             </div>
                             <div className="flex gap-2 mt-3"><button className="bg-teal-700 text-white px-4 py-2 rounded">Guardar fila</button><button type="button" onClick={()=>setManualDraft(null)} className="bg-white border px-4 py-2 rounded">Cancelar</button></div>
                         </form>}
-                        <div className="p-4 text-sm space-y-2 bg-blue-50">
-                            <p><b>Saldo, aportaciones y resultado son conceptos distintos.</b> Resultado = cambio de cartera − entradas + salidas. Incluye fondos y planes; excluye liquidez. Los traspasos entre estos productos no son entradas ni salidas externas.</p>
-                            <p>El histórico se estima por diferencias del capital registrado. Puede incluir traspasos, correcciones o costes fiscales heredados: revisa los flujos antes de darlo por verificado. No es una rentabilidad porcentual.</p>
-                            <p>El balance familiar sigue midiendo ahorro nuevo mensual y anual. Invertir liquidez antigua es entrada a cartera, pero no ahorro nuevo: no se suman ambos registros. Incluye los abonos de planes una sola vez, cuando se produzcan.</p>
-                            <p>Mensual y anual comparan fotografías disponibles; consulta las fechas reales de inicio y fin. No equivalen necesariamente a cierres naturales y el periodo actual puede estar incompleto. Para revisar flujos elige Semanal.</p>
-                        </div>
                         {flowDraft && <form onSubmit={saveFlow} className="p-4 bg-amber-50 space-y-3">
                             <b>Revisar flujos: {flowDraft.from} → {flowDraft.date}</b>
-                            <p className="text-sm">Registra todas las entradas y salidas externas del intervalo (inicio excluido, cierre incluido). No incluyas traspasos entre fondos/planes. Guardar confirma que los importes están completos; no modifica tus saldos ni el balance familiar.</p>
+
                             <label className="block">Entradas (€)<AmountInput aria-label="Entradas externas" value={flowDraft.contributions} onChange={e=>setFlowDraft({...flowDraft,contributions:e.target.value})} className="border p-2 rounded block" /></label>
                             <label className="block">Salidas (€)<AmountInput aria-label="Salidas externas" value={flowDraft.withdrawals} onChange={e=>setFlowDraft({...flowDraft,withdrawals:e.target.value})} className="border p-2 rounded block" /></label>
                             <button className="bg-teal-700 text-white rounded p-2">Confirmar flujos completos</button>
@@ -1580,7 +1574,7 @@
                         </div>
                     </div>
 
-                    <div className="bg-white p-4 rounded-xl border"><h2 className="font-bold mb-2">Aportaciones y resultado por intervalo</h2><p className="text-sm mb-3">Mismo periodo y fiabilidad que la tabla. Los huecos no representan cero. Las estimaciones requieren revisión.</p><SimpleChart data={resultChart} type="bar" /></div>
+                    <div className="bg-white p-4 rounded-xl border"><h2 className="font-bold mb-2">Aportaciones y resultado por intervalo</h2><SimpleChart data={resultChart} type="bar" /></div>
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 w-full">
                         <h2 className="text-lg font-bold mb-4 text-gray-800 flex items-center gap-2">
                             <span>📈</span> Gráfica de saldos (incluyen aportaciones)
@@ -1693,15 +1687,15 @@
                 <div className="space-y-6">
                     <section className="bg-white p-5 rounded-xl border space-y-3">
                         <h2 className="text-xl font-bold">Balance mensual familiar</h2>
-                        <p>Dos importes mensuales, sin registrar cada compra. Se utiliza el mes de cobro o cargo. Registrado no significa conciliado bancariamente: el gasto total y la diferencia no desglosada son siempre estimaciones.</p>
-                        <p>Excluye de ambos importes los traspasos de ahorro ya existente entre cuentas, fondos y liquidez y las revalorizaciones. Una retirada destinada a consumo reduce el ahorro neto; una retirada que sigue ahorrada en otra cuenta es un movimiento interno.</p>
+
+
                         <nav aria-label="Vistas del balance" className="flex flex-wrap gap-2">
                             {[['monthly','Mensual'],['ytd','Acumulado del año'],['annual','Anual']].map(([key,label]) => <button key={key} type="button" aria-pressed={view === key} onClick={()=>setView(key)} className={`border rounded px-3 py-2 ${view === key ? 'bg-blue-700 text-white' : ''}`}>{label}</button>)}
                         </nav>
                         {view !== 'monthly' && <div className="flex flex-wrap gap-4">
                             <label>Año<select aria-label="Año del balance" value={reportYear} onChange={e=>setReportYear(e.target.value)} className="block border rounded p-2">{[...new Set([String(today.getFullYear()), reportYear, ...(data.monthlyBalances || []).map(row=>row.month.slice(0,4)), ...data.incomes.map(row=>row.date.slice(0,4)), ...data.expenses.map(row=>row.date.slice(0,4))])].sort().reverse().map(year=><option key={year} value={year}>{year}</option>)}</select></label>
                             {view === 'ytd' && <label>Mes final<select aria-label="Mes final del acumulado" value={endMonth} onChange={e=>setEndMonth(Number(e.target.value))} className="block border rounded p-2">{Array.from({length:12},(_,i)=><option key={i+1} value={i+1}>{i+1}</option>)}</select></label>}
-                            <p>Solo consulta: los datos se introducen en la vista Mensual. Los cambios mensuales sin guardar se conservan al cambiar de vista y no entran en los acumulados.</p>
+
                         </div>}
                         {view === 'monthly' && <form onSubmit={handleSave} noValidate className="space-y-4">
                             <div className="flex flex-wrap gap-4">
@@ -1712,10 +1706,10 @@
                                 <label>Ahorro neto nuevo en fondos y planes (€)<AmountInput aria-label="Ahorro neto en fondos y planes" value={fundText} onChange={e=>{setFundText(e.target.value);setReviewed(false);}} className="block w-full p-2 border rounded" placeholder="Sin dato; introduce 0 si es cero" required /></label>
                                 <label>Ahorro neto nuevo en liquidez (€)<AmountInput aria-label="Ahorro neto en liquidez" value={liquidityText} onChange={e=>{setLiquidityText(e.target.value);setReviewed(false);}} className="block w-full p-2 border rounded" placeholder="Sin dato; introduce 0 si es cero" required /></label>
                             </div>
-                            <p>Se admiten importes negativos. No se rellenan desde valoraciones de inversiones ni desde el concepto Ahorro. Los importes vacíos no se convierten en cero.</p>
+
                             <details open={Boolean(result?.unresolved.length || result?.orphanDecisions.length)} className="border rounded p-3">
                                 <summary className="font-bold cursor-pointer">Revisar apuntes existentes y evitar duplicidades</summary>
-                                <p>Los apuntes Ahorro requieren una decisión explícita: solo se excluyen si confirmas ahorro real o movimiento interno. Si una retirada ya aparece como ingreso, márcala aquí y contémplala una sola vez en tus importes netos. No se modifican las pestañas originales.</p>
+
                                 <div className="space-y-3 mt-3">{result?.treatments.map(item => <label key={item.key} className="block p-2 border rounded">
                                     <span>{item.block === 'incomes' ? 'Ingreso' : 'Gasto'} · {item.row.concept} · {formatCurrency(item.row.amount)}{item.stale ? ' · Modificado: revisar de nuevo' : ''}</span>
                                     <select aria-label={`Tratamiento de ${item.row.concept} (${item.block}, ${item.row.id})`} value={item.action || ''} onChange={e=>changeAction(item, e.target.value)} className="block w-full mt-1 border p-2 rounded">
@@ -1730,7 +1724,7 @@
                             {result?.warnings.length > 0 && <div role="alert" className="p-3 bg-amber-50 border rounded"><ul className="list-disc pl-5">{result.warnings.map(message=><li key={message}>{message}</li>)}</ul></div>}
                             {savedNeedsReview && <p role="status">La revisión anterior ya no corresponde a estos datos. El mes vuelve a estar pendiente; no se han cambiado sus importes guardados.</p>}
                             <label className="block">Nota opcional<textarea value={note} onChange={e=>setNote(e.target.value)} className="block w-full border p-2 rounded" /></label>
-                            <label className="flex gap-2 items-start"><input type="checkbox" checked={reviewed} disabled={!result?.canReview} onChange={e=>setReviewed(e.target.checked)} />He revisado ingresos, ahorro, movimientos y advertencias: las transferencias y retiradas no suman ingresos reales y las retiradas destinadas a consumo figuran una sola vez en el ahorro neto. No quedan importes pendientes de conciliar. Esto no convierte las estimaciones en gastos confirmados.</label>
+                            <label className="flex gap-2 items-start"><input type="checkbox" checked={reviewed} disabled={!result?.canReview} onChange={e=>setReviewed(e.target.checked)} />He revisado el mes y sus movimientos.</label>
                             <div className="flex flex-wrap gap-3 items-center"><button type="submit" className="px-4 py-2 rounded bg-blue-700 text-white">Guardar balance</button><span>{dirty ? 'Vista previa: cambios sin guardar' : saved ? 'Importes guardados; consulta el estado del mes en la tabla anual' : 'Este mes todavía no tiene un balance guardado'}</span></div>
                         </form>}
                     </section>
@@ -1738,16 +1732,16 @@
                         <h3 className="font-bold">Resumen de {month}{dirty ? ' (vista previa)' : ''}</h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">{M.METRICS.map(metric=><div key={metric} className="p-3 bg-gray-50 rounded"><p>{labels[metric]}</p><p className="text-xl font-bold">{formatOptionalCurrency(result?.[metric])}</p></div>)}</div>
                         <p className="font-bold">Porcentaje de ahorro: {percent(M.savingsRate(result?.totalSavings ?? null, result?.income ?? null))}{dirty || !saved || !saved.reviewedAgainst || savedNeedsReview ? ' · provisional, mes pendiente' : ' · mes revisado'}</p>
-                        <p>Porcentaje = ahorro neto total / ingresos incluidos × 100. Sin ingresos positivos no se calcula; un ahorro negativo mantiene su signo.</p>
-                        <p>Fórmulas: ahorro total = fondos + liquidez; gasto estimado = ingresos incluidos − ahorro total; no desglosado estimado = gasto estimado − gastos registrados incluidos.</p>
-                        {result && <p>Apuntes originales: ingresos {formatCurrency(result.rawIncome)} y gastos/ahorro {formatCurrency(result.rawExpenses)}. Incluidos tras tu revisión: {formatCurrency(result.income)} y {formatCurrency(result.expenses)}. No se añaden gastos automáticamente por la diferencia.</p>}
+
+
+
                     </section>}
                     {annual && <section className="bg-white border rounded-xl p-5 space-y-4">
                         <h3 className="font-bold">{view === 'ytd' ? `Acumulado de enero a ${String(endMonth).padStart(2,'0')}` : 'Ejercicio completo'} · {view === 'monthly' ? month.slice(0,4) : reportYear}</h3>
-                        <p role="status">{annual.count}/{annual.expected} meses revisados · {annual.pending} pendientes · {annual.missing} sin datos. {annual.complete ? 'Cobertura completa del período; el gasto sigue siendo estimado.' : 'Acumulado parcial de meses revisados: no es el total real del período.'}</p>
+                        <p role="status">{annual.count}/{annual.expected} meses revisados · {annual.pending} pendientes · {annual.missing} sin datos. {annual.complete ? 'Completo' : 'Parcial'}</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">{M.METRICS.map(metric=><div key={metric} className="p-3 bg-gray-50 rounded"><p>{labels[metric]} · {annual.count}/{annual.expected} meses</p><p className="text-xl font-bold">{formatOptionalCurrency(annual.totals[metric])}</p></div>)}</div>
                         <p className="font-bold">Porcentaje de ahorro de los {annual.count} meses incluidos: {percent(annual.savingsRate)}{!annual.complete ? ' · parcial' : ''}</p>
-                        <p>Se divide el ahorro total por los ingresos totales de los mismos meses revisados; no se promedian porcentajes mensuales. Sin ingresos positivos no se calcula.</p>
+
                         <p className="text-lg font-bold">Media mensual de gasto estimado: {formatOptionalCurrency(annual.averageExpense)} · divisor: {annual.count || 'sin meses revisados'}</p>
                         <SimpleChart data={chartData} />
                         <div className="overflow-x-auto table-scroll"><table className="w-full text-sm text-right"><thead><tr><th className="p-2">Mes</th>{M.METRICS.map(metric=><th key={metric} className="p-2">{labels[metric]}</th>)}<th className="p-2">Ahorro %</th><th className="p-2">Estado</th></tr></thead>
@@ -1756,7 +1750,7 @@
                         </table></div>
                         {view === 'annual' && <div className="space-y-3">
                             <h4 className="font-bold">Comparación con ejercicios anteriores</h4>
-                            <p>Solo se comparan ejercicios con 12/12 meses revisados en ambos años. Los ejercicios incompletos muestran su cobertura, sin extrapolar ni comparar sus sumas parciales. Diferencias: año seleccionado menos año anterior.</p>
+
                             <div className="overflow-x-auto"><table className="w-full text-sm text-right"><thead><tr><th>Año</th><th>Cobertura</th><th>Gasto estimado anual</th><th>Ahorro anual</th><th>Ahorro %</th><th>Diferencia gasto</th><th>Diferencia ahorro</th></tr></thead><tbody>{comparison.map(row=><tr key={row.year}><td className="p-2">{row.year}</td><td>{row.count}/12 revisados · {row.pending} pendientes · {row.missing} sin datos</td><td>{formatOptionalCurrency(row.complete ? row.totals.totalExpense : null)}</td><td>{formatOptionalCurrency(row.complete ? row.totals.totalSavings : null)}</td><td>{percent(row.complete ? row.savingsRate : null)}</td><td>{row.comparable ? formatCurrency(row.expenseDifference) : 'Sin comparación'}</td><td>{row.comparable ? formatCurrency(row.savingsDifference) : 'Sin comparación'}</td></tr>)}</tbody></table></div>
                         </div>}
                     </section>}
@@ -1767,7 +1761,7 @@
         const App = () => {
             const [activeTab, setActiveTab] = useState('ingresos');
             const [notification, setNotification] = useState('');
-            
+
             const [initial] = useState(() => {
                 try { return { data: FamilyBackup.loadDataset(window.localStorage), error: '' }; }
                 catch (error) { return { data: FamilyBackup.emptyDataset(), error: 'No se han podido leer los datos guardados. No se han sobrescrito. Descarga el almacenamiento original antes de restaurar una copia válida.' }; }
@@ -1843,11 +1837,11 @@
             const addIncome = (inc) => setIncomes(prev => [...prev, inc].sort((a,b)=>b.date.localeCompare(a.date)));
             const updateIncome = (updatedInc) => setIncomes(prev => prev.map(i => i.id === updatedInc.id ? updatedInc : i).sort((a,b)=>b.date.localeCompare(a.date)));
             const deleteIncome = (id) => setIncomes(prev => prev.filter(i => i.id !== id));
-            
+
             const addExpense = (exp) => setExpenses(prev => [...prev, exp].sort((a,b)=>b.date.localeCompare(a.date)));
             const updateExpense = (updatedExp) => setExpenses(prev => prev.map(e => e.id === updatedExp.id ? updatedExp : e).sort((a,b)=>b.date.localeCompare(a.date)));
             const deleteExpense = (id) => setExpenses(prev => prev.filter(e => e.id !== id));
-            
+
             const addSnapshot = (snap) => {
                 return setSnapshots(prev => {
                     const exists = prev.findIndex(s => s.date === snap.date);
@@ -2067,7 +2061,7 @@
             return (
                 <div className="min-h-screen pb-20 w-full overflow-x-hidden">
                     <Notification message={notification} onClose={() => setNotification('')} />
-                    
+
                     <header className="bg-white shadow-sm border-b sticky top-0 z-50">
                         <div className="w-full px-4 sm:px-6 lg:px-8">
                             <div className="flex flex-col sm:flex-row justify-between items-center py-4 gap-4">
@@ -2123,12 +2117,12 @@
                     <dialog ref={importDialogRef} aria-labelledby="restore-title" onCancel={() => setPendingImport(null)} className="rounded-xl p-6 max-w-xl w-full shadow-xl backdrop:bg-black/50">
                         {pendingImport && <div className="space-y-4">
                             <h2 id="restore-title" className="text-xl font-bold">Revisar restauración JSON</h2>
-                            <p>La copia es válida. Se sustituirán los bloques indicados, aunque estén vacíos. Los bloques ausentes conservarán sus datos actuales.</p>
+                            <p>Se sustituirán los bloques indicados. Los ausentes se conservan.</p>
                             <ul className="list-disc pl-5">
                                 {FamilyBackup.ALL_BLOCKS.map(key => <li key={key}>{({ incomes: 'Ingresos', expenses: 'Gastos', funds: 'Fondos', snapshots: 'Fotografías', monthlyBalances: 'Balances mensuales' })[key]}: {pendingImport.prepared.replaced.includes(key) ? `sustituir por ${pendingImport.prepared.data[key].length} registros` : 'conservar sin cambios'}</li>)}
                             </ul>
                             {!pendingImport.prepared.replaced.includes('monthlyBalances') && monthlyBalances.length > 0 && <p>La copia anterior no contiene balances: se conservan. Si cambian sus ingresos o gastos, su revisión quedará pendiente automáticamente.</p>}
-                            <p>Antes de sustituir datos, conserva una copia recuperable en un lugar privado.</p>
+                            <p>Guarda una copia antes de restaurar.</p>
                             {recoveryMode && <p>La descarga conserva el almacenamiento original sin modificar. Si está dañado, necesitará revisión para recuperarlo; no es una copia JSON lista para importar.</p>}
                             <button type="button" onClick={downloadCurrentBackup} className="px-4 py-2 border rounded">{recoveryMode ? 'Descargar almacenamiento original' : 'Descargar copia de los datos actuales'}</button>
                             {backupRequested && <label className="flex gap-2 items-start"><input type="checkbox" checked={backupConfirmed} onChange={e => setBackupConfirmed(e.target.checked)} />He comprobado que el archivo se ha guardado.</label>}
