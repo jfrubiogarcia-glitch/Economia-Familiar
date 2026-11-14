@@ -22,9 +22,22 @@ test('unknown, negative and zero are distinct; missing active values block misle
 test('preferences survive reload, tolerate malformed storage and propagate write failures',()=>{
  let saved;const storage={getItem:()=>saved,setItem:(k,v)=>{saved=v;}};
  const pref={photo:V.toggle({},'rf'),positions:V.move(funds,{},'pp',-1),columns:{order:['rf','date'],hidden:['ing']}};
- V.write(storage,pref);assert.deepEqual(V.read(storage),pref);assert.deepEqual(V.read({getItem:()=>'{'}),{});assert.throws(()=>V.write({setItem(){throw Error('full');}},pref));
+ V.write(storage,pref);assert.deepEqual(V.read(storage),{...pref,fundChart:{order:[],hidden:[]},managerChart:{order:[],hidden:[]}});assert.deepEqual(V.read({getItem:()=>'{'}),{});assert.throws(()=>V.write({setItem(){throw Error('full');}},pref));
 });
 test('segment colours use actual movement, preserve flat segments and gaps',()=>{
  const ctx=(a,b)=>({p0:{parsed:{y:a}},p1:{parsed:{y:b}}});assert.equal(V.segmentColor(ctx(1,2)),'#16a34a');assert.equal(V.segmentColor(ctx(2,1)),'#dc2626');assert.equal(V.segmentColor(ctx(2,2)),undefined);assert.equal(V.segmentColor(ctx(null,2)),undefined);
  assert.equal(V.COLORS['Renta Fija'],'#111111');assert.equal(V.COLORS['Liquidez'],'#9ca3af');assert.equal(V.COLORS['Patrimonio Total'],V.COLORS['Cartera Total']);
+});
+
+
+test('chart visibility survives reload independently and preserves portfolio weights',()=>{
+ const a=V.allocation(funds,snap);let raw;const store={getItem:()=>raw,setItem:(k,v)=>{raw=v;}};
+ V.write(store,{photo:V.toggle({},'rf'),positions:V.toggle({},'rv'),fundChart:V.toggle({},'rf'),managerChart:V.toggle({},'manager:Gestora A')});
+ const p=V.read(store);assert.deepEqual(p.photo.hidden,['rf']);assert.deepEqual(p.positions.hidden,['rv']);
+ const f=V.pieView(a.funds,p.fundChart,a.total);assert.equal(f.visible.some(r=>r.id==='rf'),false);assert.equal(f.visible.find(r=>r.id==='rv').percent,20);assert.equal(f.slices.reduce((n,r)=>n+r.value,0),a.total);
+ const m=V.pieView(a.managers,p.managerChart,a.total);assert.equal(m.visible.some(r=>r.label==='Gestora A'),false);assert.equal(m.slices.reduce((n,r)=>n+r.percent,0),100);
+ assert.equal(V.pieView(a.funds,V.toggle(p.fundChart,'rf'),a.total).visible.length,a.funds.length);
+});
+test('balance bars are green for gains, red for losses and neutral for zero or missing',()=>{
+ assert.equal(V.balanceBarColor(1),'#16a34a');assert.equal(V.balanceBarColor(-1),'#dc2626');assert.equal(V.balanceBarColor(0),'#9ca3af');assert.equal(V.balanceBarColor(null),'#9ca3af');
 });

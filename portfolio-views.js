@@ -10,7 +10,7 @@
         const strings=value=>Array.isArray(value)?[...new Set(value.filter(x=>typeof x==='string'))]:[];
         return {order:strings(pref?.order),hidden:strings(pref?.hidden)};
     }
-    function read(storage){try{const data=JSON.parse(storage?.getItem(KEY)||'{}');return Object.fromEntries(['photo','positions','columns'].map(k=>[k,normalise(data?.[k])]));}catch{return {};}}
+    function read(storage){try{const data=JSON.parse(storage?.getItem(KEY)||'{}');return Object.fromEntries(['photo','positions','columns','fundChart','managerChart'].map(k=>[k,normalise(data?.[k])]));}catch{return {};}}
     function write(storage,data){if(!storage)throw new Error('Preferencias: almacenamiento no disponible.');storage.setItem(KEY,JSON.stringify(data));}
     function arrange(items,pref={},visible=false){
         const {order,hidden}=normalise(pref),rank=new Map(order.map((id,i)=>[id,i]));
@@ -31,10 +31,17 @@
         const total=entries.reduce((n,e)=>n+e.value,0);
         const summarise=field=>{
             const map=new Map();for(const e of entries){const key=e[field]||'Sin gestora';map.set(key,(map.get(key)||0)+e.value);}
-            return [...map].map(([label,value])=>({label,value,percent:total>0?value/total*100:null}));
+            return [...map].map(([label,value])=>({id:field+':'+label,label,value,percent:total>0?value/total*100:null}));
         };
-        return {date:snapshot.date,total,missing:[],types:summarise('type'),managers:summarise('manager'),funds:entries.map(e=>({label:e.label,value:e.value,percent:total>0?e.value/total*100:null}))};
+        return {date:snapshot.date,total,missing:[],types:summarise('type'),managers:summarise('manager'),funds:entries.map(e=>({id:e.id,label:e.label,value:e.value,percent:total>0?e.value/total*100:null}))};
     }
+    function pieView(rows,pref,total){
+        const visible=arrange(rows,pref,true), ids=new Set(visible.map(r=>r.id));
+        const hiddenValue=rows.filter(r=>!ids.has(r.id)).reduce((n,r)=>n+r.value,0);
+        const slices=hiddenValue>0?[...visible,{id:'hidden-slices',label:'Ocultos',value:hiddenValue,percent:total>0?hiddenValue/total*100:null}]:visible;
+        return {visible,slices};
+    }
+    function balanceBarColor(value){return !finite(value)||value===0?'#9ca3af':value>0?'#16a34a':'#dc2626';}
     function segmentColor(context){const a=context?.p0?.parsed?.y,b=context?.p1?.parsed?.y;if(!finite(a)||!finite(b)||a===b)return undefined;return b>a?'#16a34a':'#dc2626';}
-    return {KEY,COLORS,normalise,read,write,arrange,move,toggle,group,allocation,segmentColor};
+    return {KEY,COLORS,normalise,read,write,arrange,move,toggle,group,allocation,pieView,balanceBarColor,segmentColor};
 });

@@ -147,19 +147,23 @@
             </details>;
         };
 
-        const AllocationPie = ({ title, rows, total, date, missing }) => {
+        const AllocationPie = ({ title, rows, total, date, missing, preference, onChange }) => {
+            const view = FamilyPortfolio.pieView(rows,preference,total);
+            const visibleRows = view.visible, slices = view.slices;
             const canvas = useRef(null);
             const palette=['#4c1d95','#f97316','#2563eb','#0f766e','#be185d','#a16207','#7c3aed','#0284c7','#475569','#65a30d','#dc2626','#d97706','#3730a3','#047857'];
-            const colours = rows.map((r,i)=>FamilyPortfolio.COLORS[r.label]||(/liquidez/i.test(r.label)?'#9ca3af':palette[i%palette.length]));
+            const colour = r => r.id === 'hidden-slices' ? '#e5e7eb' : FamilyPortfolio.COLORS[r.label]||(/liquidez/i.test(r.label)?'#9ca3af':palette[Math.max(0,rows.findIndex(x=>x.id===r.id))%palette.length]);
+            const colours = slices.map(colour);
             useEffect(()=>{
                 if(!canvas.current || !(total>0))return;
-                const chart=new Chart(canvas.current.getContext('2d'),{type:'doughnut',data:{labels:rows.map(r=>r.label),datasets:[{data:rows.map(r=>r.value),backgroundColor:colours,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${formatCurrency(ctx.raw)} · ${formatPercent(total>0?ctx.raw/total*100:0)}`}}}}});
+                const chart=new Chart(canvas.current.getContext('2d'),{type:'doughnut',data:{labels:slices.map(r=>r.label),datasets:[{data:slices.map(r=>r.value),backgroundColor:colours,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${formatCurrency(ctx.raw)} · ${formatPercent(total>0?ctx.raw/total*100:0)}`}}}}});
                 return ()=>chart.destroy();
-            },[rows,total]);
+            },[rows,total,preference]);
             return <section className="bg-white rounded-xl border p-4 min-w-0"><h3 className="font-bold">{title}</h3><div className="text-sm text-gray-500 mb-3">{date||'Sin fecha'} · {formatOptionalCurrency(total)}</div>
+                {onChange && <ViewControls title={`Mostrar en ${title.toLowerCase()}`} items={rows.map(r=>({id:r.id,name:r.label}))} preference={preference} onChange={onChange}/>}
                 {missing.length>0 ? <p role="status" className="text-amber-800">Sin datos completos: {missing.join(', ')}</p> : !(total>0) ? <p>Sin saldo disponible</p> : <>
                     <div style={{height:230}}><canvas ref={canvas} role="img" aria-label={title}/></div>
-                    <div className="overflow-x-auto mt-3"><table className="w-full text-sm"><thead><tr><th className="text-left">Concepto</th><th className="text-right">Importe</th><th className="text-right">Peso</th></tr></thead><tbody>{rows.map((r,i)=><tr key={r.label}><td className="py-1 pr-2"><span className="inline-block w-3 h-3 mr-2 rounded-sm" style={{backgroundColor:colours[i]}}/>{r.label}</td><td className="text-right whitespace-nowrap">{formatCurrency(r.value)}</td><td className="text-right pl-2">{formatOptionalPercent(r.percent)}</td></tr>)}</tbody></table></div>
+                    <div className="overflow-x-auto mt-3"><table className="w-full text-sm"><thead><tr><th className="text-left">Concepto</th><th className="text-right">Importe</th><th className="text-right">Peso</th></tr></thead><tbody>{visibleRows.map(r=><tr key={r.id}><td className="py-1 pr-2"><span className="inline-block w-3 h-3 mr-2 rounded-sm" style={{backgroundColor:colour(r)}}/>{r.label}</td><td className="text-right whitespace-nowrap">{formatCurrency(r.value)}</td><td className="text-right pl-2">{formatOptionalPercent(r.percent)}</td></tr>)}</tbody></table></div>
                 </>}
             </section>;
         };
@@ -1327,10 +1331,16 @@
                 if (updateSnapshot({...original, investmentFlow: {fromDate:flowDraft.from, contributions, withdrawals}}) === false) return;
                 setFlowDraft(null); showMessage('Flujos del intervalo guardados. El balance familiar no se modifica.');
             };
-            const resultChartRows = [...FamilyPerformance.periods(historyRows,snapshots,'semanal')].reverse().filter(r => r.date >= '2026-06-01' && r.from >= '2026-06-01');
-            const resultChart = { labels: resultChartRows.map(r=>r.date), datasets:[
-                {label:'Cambio del saldo total (con liquidez)',data:resultChartRows.map(r=>r.diffPatrimonio),backgroundColor:'#2563eb'},
+            const [resultPeriod,setResultPeriod] = useState('semanal');
+            const resultChartRows = FamilyPerformance.chartPeriods(historyRows,snapshots,resultPeriod);
+            const resultChart = { labels: resultChartRows.map(r=>r.label || r.date), datasets:[
+                {label:'Cambio del saldo total (con liquidez)',data:resultChartRows.map(r=>r.diffPatrimonio),backgroundColor:resultChartRows.map(r=>FamilyPortfolio.balanceBarColor(r.diffPatrimonio))},
                 {label:'Entradas netas a cartera',data:resultChartRows.map(r=>r.netFlow),backgroundColor:'#f97316'}
+            ]};
+
+            const movementSumsChart = {labels:resultChartRows.map(r=>r.label||r.date),datasets:[
+                {label:'Suma de subidas del saldo total',data:resultChartRows.map(r=>r.positiveChange),backgroundColor:'#16a34a'},
+                {label:'Suma de bajadas del saldo total',data:resultChartRows.map(r=>r.negativeChange),backgroundColor:'#dc2626'}
             ]};
 
             const historyColumns = [
@@ -1480,8 +1490,8 @@
                     </section>
                     <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
                         <AllocationPie title="Distribución por tipo" rows={allocation.types} total={allocation.total} date={allocation.date} missing={allocation.missing}/>
-                        <AllocationPie title="Peso por fondo y liquidez" rows={allocation.funds} total={allocation.total} date={allocation.date} missing={allocation.missing}/>
-                        <AllocationPie title="Peso por gestora y liquidez" rows={allocation.managers} total={allocation.total} date={allocation.date} missing={allocation.missing}/>
+                        <AllocationPie title="Peso por fondo y liquidez" preference={viewPrefs.fundChart} onChange={value=>saveViewPreference('fundChart',value)} rows={allocation.funds} total={allocation.total} date={allocation.date} missing={allocation.missing}/>
+                        <AllocationPie title="Peso por gestora y liquidez" preference={viewPrefs.managerChart} onChange={value=>saveViewPreference('managerChart',value)} rows={allocation.managers} total={allocation.total} date={allocation.date} missing={allocation.missing}/>
                     </div>
 
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mt-6 w-full">
@@ -1544,7 +1554,7 @@
                         </div>
                     </div>
 
-                    <div className="bg-white p-4 rounded-xl border"><h2 className="font-bold mb-2">Entradas netas y cambios de saldo · semanal</h2><SimpleChart data={resultChart} type="bar" /></div>
+                    <div className="bg-white p-4 rounded-xl border"><div className="flex flex-wrap items-center justify-between gap-3 mb-3"><h2 className="font-bold">Entradas netas y cambios de saldo</h2><label className="text-sm">Periodo <select aria-label="Periodo de entradas y cambios de saldo" value={resultPeriod} onChange={e=>setResultPeriod(e.target.value)} className="border rounded p-2 ml-2"><option value="semanal">Semanal</option><option value="mensual">Mensual</option><option value="anual">Anual</option><option value="total">Total</option></select></label></div>{resultChartRows.length>0&&<div className="text-sm text-gray-500 mb-2">{resultChartRows[0].from} → {resultChartRows[resultChartRows.length-1].date}</div>}<SimpleChart data={resultChart} type="bar" /><h3 className="font-bold mt-6 mb-2">Suma de subidas y bajadas del saldo total</h3><SimpleChart data={movementSumsChart} type="bar" /></div>
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 w-full">
                         <h2 className="text-lg font-bold mb-4 text-gray-800 flex items-center gap-2">
                             <span>📈</span> Gráfica de saldos (incluyen aportaciones)
