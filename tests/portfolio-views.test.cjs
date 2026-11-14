@@ -53,3 +53,11 @@ test('Abaco and Abaco Capital share one manager without changing source data',()
 test('duplicate movement-sums graph is removed and main period selector remains',()=>{
  const html=require('node:fs').readFileSync(require('node:path').join(__dirname,'../index.html'),'utf8');assert.equal(html.includes('movementSumsChart'),false);assert.equal(html.includes('Suma de subidas y bajadas del saldo total'),false);assert.equal(html.includes('Periodo de entradas y cambios de saldo'),true);
 });
+
+
+test('manager aliases cover legal suffixes and labels show yo without changing source names',()=>{
+ for(const name of ['Ábaco','ábaco capital','ABACO CAPITAL, S.G.I.I.C., S.A.','Abaco Capital SGIIC SAU','Ábaco\u200b Capital'])assert.equal(V.canonicalManager(name),'Ábaco');
+ assert.equal(V.canonicalManager('Otra Capital'),'Otra Capital');assert.equal(V.displayLabel('Plan ficticio (JO)'),'Plan ficticio (yo)');assert.equal(V.displayLabel('Jorge'),'Jorge');
+ const f=structuredClone(funds);f[2].name='Plan ficticio jo';const a=V.allocation(f,snap);assert.equal(a.funds.find(r=>r.id==='pp').label,'Plan ficticio yo');assert.equal(f[2].name,'Plan ficticio jo');
+ const html=require('node:fs').readFileSync(require('node:path').join(__dirname,'../index.html'),'utf8');assert(html.includes('portfolio-views.js?v='));
+});
