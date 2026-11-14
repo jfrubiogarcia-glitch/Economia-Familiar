@@ -10,7 +10,8 @@
         const strings=value=>Array.isArray(value)?[...new Set(value.filter(x=>typeof x==='string'))]:[];
         return {order:strings(pref?.order),hidden:strings(pref?.hidden)};
     }
-    function canonicalManager(name){const key=String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().replace(/\s+/g,' ').toLowerCase();return ['abaco','abaco capital'].includes(key)?'Ábaco':name;}
+    function displayLabel(value){return String(value??'').replace(/\bjo\b/gi,'yo');}
+    function canonicalManager(name){const key=String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[.,]/g,'').trim().replace(/\s+/g,' ').toLowerCase();return /^abaco(?: capital)?(?: sgiic)?(?: sa| sau)?$/.test(key)?'Ábaco':displayLabel(name);}
     function read(storage){try{const data=JSON.parse(storage?.getItem(KEY)||'{}');return Object.fromEntries(['photo','positions','columns','fundChart','managerChart'].map(k=>[k,k==='managerChart'?normalise(Object.fromEntries(Object.entries(normalise(data?.[k])).map(([field,ids])=>[field,ids.map(id=>id.startsWith('manager:')?'manager:'+canonicalManager(id.slice(8)):id)]))):normalise(data?.[k])]));}catch{return {};}}
     function write(storage,data){if(!storage)throw new Error('Preferencias: almacenamiento no disponible.');storage.setItem(KEY,JSON.stringify(data));}
     function arrange(items,pref={},visible=false){
@@ -25,7 +26,7 @@
         if(!snapshot)return {date:null,total:null,types:[],funds:[],managers:[],missing:[]};
         const missing=funds.filter(f=>!finite(snapshot.fundsData?.[f.id]?.value)&&!f.archived).map(f=>f.name);
         if(!finite(snapshot.liquidity))missing.push('Liquidez');
-        const entries=funds.filter(f=>finite(snapshot.fundsData?.[f.id]?.value)).map(f=>({id:String(f.id),label:f.name,manager:canonicalManager(f.gestora),type:group(f.type),value:snapshot.fundsData[f.id].value}));
+        const entries=funds.filter(f=>finite(snapshot.fundsData?.[f.id]?.value)).map(f=>({id:String(f.id),label:displayLabel(f.name),manager:canonicalManager(f.gestora),type:group(f.type),value:snapshot.fundsData[f.id].value}));
         if(entries.some(e=>e.value<0)||snapshot.liquidity<0)missing.push('Importes negativos');
         if(missing.length)return {date:snapshot.date,total:null,types:[],funds:[],managers:[],missing};
         entries.push({id:'bank-cash',label:'Liquidez en bancos',manager:'Liquidez en bancos',type:'Liquidez',value:snapshot.liquidity});
@@ -44,5 +45,5 @@
     }
     function balanceBarColor(value){return !finite(value)||value===0?'#9ca3af':value>0?'#16a34a':'#dc2626';}
     function segmentColor(context){const a=context?.p0?.parsed?.y,b=context?.p1?.parsed?.y;if(!finite(a)||!finite(b)||a===b)return undefined;return b>a?'#16a34a':'#dc2626';}
-    return {KEY,COLORS,normalise,read,write,arrange,move,toggle,group,canonicalManager,allocation,pieView,balanceBarColor,segmentColor};
+    return {KEY,COLORS,normalise,read,write,arrange,move,toggle,group,displayLabel,canonicalManager,allocation,pieView,balanceBarColor,segmentColor};
 });

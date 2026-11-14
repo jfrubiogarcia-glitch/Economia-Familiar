@@ -15,7 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="./monthly-balance.js"></script>
     <script src="./investment-performance.js"></script>
-    <script src="./portfolio-views.js"></script>
+    <script src="./portfolio-views.js?v=20261114-gestoras2"></script>
     <script src="./backup.js"></script>
 
     <style>
@@ -138,9 +138,9 @@
             return <details className="m-3 border rounded-lg bg-white"><summary className="cursor-pointer p-3 font-semibold text-sm">{title}</summary>
                 <div className="p-3 pt-0 space-y-2 max-h-72 overflow-auto">
                     {ordered.map((item,index)=><div key={item.id} className="flex items-center gap-2 border-b pb-2">
-                        <label className="flex items-center gap-2 flex-1 min-w-0 text-sm"><input type="checkbox" aria-label={`Mostrar ${item.name}`} checked={!preference?.hidden?.includes(String(item.id))} onChange={()=>onChange(FamilyPortfolio.toggle(preference,item.id))}/><span className="break-words">{item.name}</span></label>
-                        <button type="button" aria-label={`Subir ${item.name}`} disabled={index===0} onClick={()=>onChange(FamilyPortfolio.move(items,preference,item.id,-1))} className="p-2 border rounded disabled:opacity-30">↑</button>
-                        <button type="button" aria-label={`Bajar ${item.name}`} disabled={index===ordered.length-1} onClick={()=>onChange(FamilyPortfolio.move(items,preference,item.id,1))} className="p-2 border rounded disabled:opacity-30">↓</button>
+                        <label className="flex items-center gap-2 flex-1 min-w-0 text-sm"><input type="checkbox" aria-label={`Mostrar ${FamilyPortfolio.displayLabel(item.name)}`} checked={!preference?.hidden?.includes(String(item.id))} onChange={()=>onChange(FamilyPortfolio.toggle(preference,item.id))}/><span className="break-words">{FamilyPortfolio.displayLabel(item.name)}</span></label>
+                        <button type="button" aria-label={`Subir ${FamilyPortfolio.displayLabel(item.name)}`} disabled={index===0} onClick={()=>onChange(FamilyPortfolio.move(items,preference,item.id,-1))} className="p-2 border rounded disabled:opacity-30">↑</button>
+                        <button type="button" aria-label={`Bajar ${FamilyPortfolio.displayLabel(item.name)}`} disabled={index===ordered.length-1} onClick={()=>onChange(FamilyPortfolio.move(items,preference,item.id,1))} className="p-2 border rounded disabled:opacity-30">↓</button>
                     </div>)}
                     <button type="button" onClick={()=>onChange({order:[],hidden:[]})} className="border rounded px-3 py-2 text-sm">Restablecer {title.toLowerCase()}</button>
                 </div>
@@ -1224,11 +1224,13 @@
 
             const gestoraTotals = {}; const tipoTotals = {};
             table1Rows.forEach(r => {
-                gestoraTotals[r.gestora] = (gestoraTotals[r.gestora] || 0) + r.val;
+                const manager = FamilyPortfolio.canonicalManager(r.gestora);
+                gestoraTotals[manager] = (gestoraTotals[manager] || 0) + r.val;
                 tipoTotals[r.type] = (tipoTotals[r.type] || 0) + r.val;
             });
             table1Rows.forEach(r => {
-                r.pesoGestora = gestoraTotals[r.gestora] > 0 ? (r.val / gestoraTotals[r.gestora]) * 100 : 0;
+                const manager = FamilyPortfolio.canonicalManager(r.gestora);
+                r.pesoGestora = gestoraTotals[manager] > 0 ? (r.val / gestoraTotals[manager]) * 100 : 0;
                 r.pesoTipo = tipoTotals[r.type] > 0 ? (r.val / tipoTotals[r.type]) * 100 : 0;
                 r.pesoCartera = totalCartera > 0 ? (r.val / totalCartera) * 100 : 0;
                 r.pesoIngreso = totalIngreso > 0 ? (r.ing / totalIngreso) * 100 : 0;
@@ -1405,10 +1407,10 @@
                                     {photoFunds.map(f => (
                                         <div key={f.id} className="p-3 bg-gray-50 border rounded hover:border-teal-300 transition-colors">
                                             <div className="flex justify-between items-start">
-                                                <p className="font-bold text-sm text-gray-800 truncate" title={f.name}>{f.name}</p>
+                                                <p className="font-bold text-sm text-gray-800 truncate" title={FamilyPortfolio.displayLabel(f.name)}>{FamilyPortfolio.displayLabel(f.name)}</p>
                                                 <button type="button" onClick={()=>handleOpenEditFund(f)} className="text-[10px] text-blue-600 hover:underline">Editar Fondo</button>
                                             </div>
-                                            <p className="text-[10px] text-gray-500 uppercase">{FamilyPortfolio.group(f.type)} | {f.gestora}</p>
+                                            <p className="text-[10px] text-gray-500 uppercase">{FamilyPortfolio.group(f.type)} | {FamilyPortfolio.canonicalManager(f.gestora)}</p>
                                             <div className="grid grid-cols-2 gap-2 mt-3">
                                                 <div><label className="block text-[10px] font-bold text-gray-600 mb-1">INGRESO</label><AmountInput value={snapFundsData[f.id]?.ingreso ?? ''} onChange={e=>handleFundDataChange(f.id, 'ingreso', e.target.value)} className="w-full p-1.5 border rounded text-sm outline-teal-500" /></div>
                                                 <div><label className="block text-[10px] font-bold text-teal-800 mb-1">VALOR ACTUAL</label><AmountInput value={snapFundsData[f.id]?.value ?? ''} onChange={e=>handleFundDataChange(f.id, 'value', e.target.value)} className="w-full p-1.5 border rounded border-teal-300 font-bold text-sm text-teal-900 outline-teal-500" /></div>
@@ -1419,7 +1421,7 @@
                                 {archivedFunds.length > 0 && <div className="mt-4 p-3 border rounded bg-amber-50 space-y-2">
                                     <p className="font-bold">Valores registrados de fondos archivados</p>
 
-                                    {archivedFunds.map(f => <p key={f.id}>{f.name}: ingreso {formatOptionalCurrency(snapFundsData[f.id]?.ingreso)}, valor {formatOptionalCurrency(snapFundsData[f.id]?.value)}</p>)}
+                                    {archivedFunds.map(f => <p key={f.id}>{FamilyPortfolio.displayLabel(f.name)}: ingreso {formatOptionalCurrency(snapFundsData[f.id]?.ingreso)}, valor {formatOptionalCurrency(snapFundsData[f.id]?.value)}</p>)}
                                     {!editingSnapId && <label className="flex gap-2"><input type="checkbox" checked={archivedValuesConfirmed} onChange={e=>setArchivedValuesConfirmed(e.target.checked)} />He revisado estos valores registrados y confirmo que siguen siendo los de esta nueva fotografía.</label>}
                                 </div>}
                                 <div className="flex gap-2 mt-6">
@@ -1431,7 +1433,7 @@
                         {archivedFunds.length > 0 && <details className="mt-4 border-t pt-3">
                             <summary className="font-bold">Fondos archivados actualmente ({archivedFunds.length})</summary>
 
-                            {archivedFunds.map(f => <div key={f.id} className="p-2 border-b"><div className="flex justify-between gap-3"><span>{f.name} · {f.type} · {f.isin}</span><button type="button" onClick={()=>handleReactivateFund(f.id)} className="text-blue-700 underline">Reactivar</button></div>{!FamilyBackup.archiveEligibility(fundDataset, f.id).allowed && <p role="alert">Estado incompatible: su último valor no es cero o no consta. Conserva el histórico y reactiva el fondo para revisar nuevos registros; no se pondrá a cero automáticamente.</p>}</div>)}
+                            {archivedFunds.map(f => <div key={f.id} className="p-2 border-b"><div className="flex justify-between gap-3"><span>{FamilyPortfolio.displayLabel(f.name)} · {f.type} · {f.isin}</span><button type="button" onClick={()=>handleReactivateFund(f.id)} className="text-blue-700 underline">Reactivar</button></div>{!FamilyBackup.archiveEligibility(fundDataset, f.id).allowed && <p role="alert">Estado incompatible: su último valor no es cero o no consta. Conserva el histórico y reactiva el fondo para revisar nuevos registros; no se pondrá a cero automáticamente.</p>}</div>)}
                         </details>}
                     </div>
 
@@ -1440,7 +1442,7 @@
                             <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full fade-in">
                                 <h3 className="text-lg font-bold text-teal-900 mb-4">{editingFund ? 'Editar Fondo' : 'Añadir Nuevo Fondo'}</h3>
                                 <form onSubmit={handleSaveFundModal} className="space-y-4">
-                                    <div><label className="block text-xs font-bold text-gray-600 uppercase mb-1">Nombre del Fondo</label><input type="text" value={fundName} disabled={fundRecordLocked} onChange={e=>setFundName(e.target.value)} className="w-full p-2 border rounded" required /></div>
+                                    <div><label className="block text-xs font-bold text-gray-600 uppercase mb-1">Nombre del Fondo</label><input type="text" value={fundRecordLocked ? FamilyPortfolio.displayLabel(fundName) : fundName} disabled={fundRecordLocked} onChange={e=>setFundName(e.target.value)} className="w-full p-2 border rounded" required /></div>
                                     <div><label className="block text-xs font-bold text-gray-600 uppercase mb-1">ISIN</label><input type="text" value={fundIsin} disabled={fundRecordLocked} onChange={e=>setFundIsin(e.target.value)} className="w-full p-2 border rounded" placeholder="Ej: ES0140072010 o N5116" /></div>
                                     <div><label className="block text-xs font-bold text-gray-600 uppercase mb-1">Fecha de Inicio</label><input type="date" value={fundStart} disabled={fundRecordLocked} onChange={e=>setFundStart(e.target.value)} className="w-full p-2 border rounded" required /></div>
                                     <div>
@@ -1475,7 +1477,7 @@
                         <div className="table-scroll"><table aria-label="Desglose de cartera" className="w-full text-xs text-right">
                             <thead><tr>{['Fondo','Fecha','ISIN','Capital registrado','Capital del año','Valor actual','Peso en cartera','Dentro de gestora','Dentro de tipo','Peso del capital'].map(label=><th key={label} className="px-3 py-3">{label}</th>)}</tr></thead>
                             <tbody>{currentSnap && displayedTable1Rows.map(row=><tr key={row.id} className="border-b">
-                                <td className="px-3 py-2 text-left font-semibold">{row.name}{row.archived?' (archivado)':''}<span className="block text-gray-500 text-xs font-normal">{row.gestora}</span></td>
+                                <td className="px-3 py-2 text-left font-semibold">{FamilyPortfolio.displayLabel(row.name)}{row.archived?' (archivado)':''}<span className="block text-gray-500 text-xs font-normal">{FamilyPortfolio.canonicalManager(row.gestora)}</span></td>
                                 <td className="px-3 py-2">{row.start}</td><td className="px-3 py-2">{row.isin}</td>
                                 <td className="px-3 py-2">{formatOptionalCurrency(row.ing)}</td><td className="px-3 py-2">{formatCurrency(row.ingresoAno)}</td><td className="px-3 py-2 font-bold text-blue-800">{formatCurrency(row.val)}</td>
                                 <td className="px-3 py-2">{formatPercent(row.pesoCartera)}</td><td className="px-3 py-2">{formatPercent(row.pesoGestora)}</td><td className="px-3 py-2">{formatPercent(row.pesoTipo)}</td><td className="px-3 py-2">{formatPercent(row.pesoIngreso)}</td>
