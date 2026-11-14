@@ -41,3 +41,15 @@ test('chart visibility survives reload independently and preserves portfolio wei
 test('balance bars are green for gains, red for losses and neutral for zero or missing',()=>{
  assert.equal(V.balanceBarColor(1),'#16a34a');assert.equal(V.balanceBarColor(-1),'#dc2626');assert.equal(V.balanceBarColor(0),'#9ca3af');assert.equal(V.balanceBarColor(null),'#9ca3af');
 });
+
+
+test('Abaco and Abaco Capital share one manager without changing source data',()=>{
+ const f=structuredClone(funds);f[0].gestora='Ábaco';f[1].gestora=' ABACO  CAPITAL ';const original=JSON.stringify(f);
+ const a=V.allocation(f,snap);assert.equal(a.managers.filter(r=>r.label==='Ábaco').length,1);assert.equal(a.managers.find(r=>r.label==='Ábaco').value,300);assert.equal(a.managers.find(r=>r.label==='Ábaco').percent,30);assert.equal(JSON.stringify(f),original);
+ assert.equal(V.canonicalManager('Abaco Capital'),'Ábaco');assert.equal(V.canonicalManager('Otra gestora'),'Otra gestora');
+ const p=V.read({getItem:()=>JSON.stringify({managerChart:{order:['manager:Ábaco Capital','manager:Ábaco'],hidden:['manager:Abaco Capital']}})});
+ assert.deepEqual(p.managerChart,{order:['manager:Ábaco'],hidden:['manager:Ábaco']});
+});
+test('duplicate movement-sums graph is removed and main period selector remains',()=>{
+ const html=require('node:fs').readFileSync(require('node:path').join(__dirname,'../index.html'),'utf8');assert.equal(html.includes('movementSumsChart'),false);assert.equal(html.includes('Suma de subidas y bajadas del saldo total'),false);assert.equal(html.includes('Periodo de entradas y cambios de saldo'),true);
+});

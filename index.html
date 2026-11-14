@@ -1338,11 +1338,6 @@
                 {label:'Entradas netas a cartera',data:resultChartRows.map(r=>r.netFlow),backgroundColor:'#f97316'}
             ]};
 
-            const movementSumsChart = {labels:resultChartRows.map(r=>r.label||r.date),datasets:[
-                {label:'Suma de subidas del saldo total',data:resultChartRows.map(r=>r.positiveChange),backgroundColor:'#16a34a'},
-                {label:'Suma de bajadas del saldo total',data:resultChartRows.map(r=>r.negativeChange),backgroundColor:'#dc2626'}
-            ]};
-
             const historyColumns = [
                 ['date','Fecha','text'],['ing','Capital registrado','eur'],['rf','Renta fija','eur'],['rv','Renta variable (+PP)','eur'],['liquidity','Liquidez','eur'],
                 ['cartera','Cartera total','eur'],['patrimonio','Patrimonio total','eur'],['diffCartera','Cambio de saldo cartera (€)','eur'],['pctCartera','Variación de saldo cartera (%)','pct'],
@@ -1554,7 +1549,7 @@
                         </div>
                     </div>
 
-                    <div className="bg-white p-4 rounded-xl border"><div className="flex flex-wrap items-center justify-between gap-3 mb-3"><h2 className="font-bold">Entradas netas y cambios de saldo</h2><label className="text-sm">Periodo <select aria-label="Periodo de entradas y cambios de saldo" value={resultPeriod} onChange={e=>setResultPeriod(e.target.value)} className="border rounded p-2 ml-2"><option value="semanal">Semanal</option><option value="mensual">Mensual</option><option value="anual">Anual</option><option value="total">Total</option></select></label></div>{resultChartRows.length>0&&<div className="text-sm text-gray-500 mb-2">{resultChartRows[0].from} → {resultChartRows[resultChartRows.length-1].date}</div>}<SimpleChart data={resultChart} type="bar" /><h3 className="font-bold mt-6 mb-2">Suma de subidas y bajadas del saldo total</h3><SimpleChart data={movementSumsChart} type="bar" /></div>
+                    <div className="bg-white p-4 rounded-xl border"><div className="flex flex-wrap items-center justify-between gap-3 mb-3"><h2 className="font-bold">Entradas netas y cambios de saldo</h2><label className="text-sm">Periodo <select aria-label="Periodo de entradas y cambios de saldo" value={resultPeriod} onChange={e=>setResultPeriod(e.target.value)} className="border rounded p-2 ml-2"><option value="semanal">Semanal</option><option value="mensual">Mensual</option><option value="anual">Anual</option><option value="total">Total</option></select></label></div>{resultChartRows.length>0&&<div className="text-sm text-gray-500 mb-2">{resultChartRows[0].from} → {resultChartRows[resultChartRows.length-1].date}</div>}<SimpleChart data={resultChart} type="bar" /></div>
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 w-full">
                         <h2 className="text-lg font-bold mb-4 text-gray-800 flex items-center gap-2">
                             <span>📈</span> Gráfica de saldos (incluyen aportaciones)

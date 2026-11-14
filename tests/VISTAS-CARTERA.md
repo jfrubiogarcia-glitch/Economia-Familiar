@@ -27,3 +27,11 @@ El selector de la sección de barras permite Semanal, Mensual, Anual y Total y e
 Una segunda gráfica de barras separa la suma de cambios positivos (verde) de la suma de cambios negativos (rojo). Se suman los intervalos originales antes de agrupar: un mes +500/−300 conserva ambas sumas y un neto +200. No se suman solo los netos mensuales para obtener los totales de subidas y bajadas. Un intervalo desconocido deja desconocido el acumulado correspondiente.
 
 Validación ampliada: 192 pruebas Node; comprobados límites temporales, grupos por mes y año, acumulado total, subidas y bajadas separadas, ausencia de datos e inmutabilidad de fotografías. Chrome: selector mensual/anual/total y representación visual en Total con +60/−10 y cambio neto +50, usando datos ficticios. Publicación todavía pendiente por denegación anterior de la operación de GitHub.
+
+## Ajuste de gestora y retirada de gráfica
+
+Ábaco y Ábaco Capital se agrupan como «Ábaco» únicamente en el reparto por gestora, reconociendo mayúsculas, acentos y espacios. Se conservan las denominaciones de los registros originales. Las preferencias de orden/ocultación de ambas etiquetas se trasladan a la agrupación única; si alguna estaba oculta se conserva esa ocultación hasta volver a marcar Ábaco.
+
+Por solicitud del usuario se retira la segunda gráfica «Suma de subidas y bajadas del saldo total». Permanece la gráfica principal de entradas netas y cambios de saldo y sus cuatro periodos. Los cálculos y registros históricos no se eliminan.
+
+Validación: 194 pruebas Node y git diff --check. Chrome con datos ficticios: Ábaco y Ábaco Capital suman 850 € en una sola gestora; la gráfica duplicada no está y el selector principal sigue disponible. No probado en iPhone real.
