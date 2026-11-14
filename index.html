@@ -15,6 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="./monthly-balance.js"></script>
     <script src="./investment-performance.js"></script>
+    <script src="./portfolio-views.js"></script>
     <script src="./backup.js"></script>
 
     <style>
@@ -130,6 +131,37 @@
             }, [data, type, options]);
 
             return <div style={{ height: '350px', width: '100%' }}><canvas ref={chartRef}></canvas></div>;
+        };
+
+        const ViewControls = ({ title, items, preference, onChange }) => {
+            const ordered = FamilyPortfolio.arrange(items, preference);
+            return <details className="m-3 border rounded-lg bg-white"><summary className="cursor-pointer p-3 font-semibold text-sm">{title}</summary>
+                <div className="p-3 pt-0 space-y-2 max-h-72 overflow-auto">
+                    {ordered.map((item,index)=><div key={item.id} className="flex items-center gap-2 border-b pb-2">
+                        <label className="flex items-center gap-2 flex-1 min-w-0 text-sm"><input type="checkbox" aria-label={`Mostrar ${item.name}`} checked={!preference?.hidden?.includes(String(item.id))} onChange={()=>onChange(FamilyPortfolio.toggle(preference,item.id))}/><span className="break-words">{item.name}</span></label>
+                        <button type="button" aria-label={`Subir ${item.name}`} disabled={index===0} onClick={()=>onChange(FamilyPortfolio.move(items,preference,item.id,-1))} className="p-2 border rounded disabled:opacity-30">↑</button>
+                        <button type="button" aria-label={`Bajar ${item.name}`} disabled={index===ordered.length-1} onClick={()=>onChange(FamilyPortfolio.move(items,preference,item.id,1))} className="p-2 border rounded disabled:opacity-30">↓</button>
+                    </div>)}
+                    <button type="button" onClick={()=>onChange({order:[],hidden:[]})} className="border rounded px-3 py-2 text-sm">Restablecer {title.toLowerCase()}</button>
+                </div>
+            </details>;
+        };
+
+        const AllocationPie = ({ title, rows, total, date, missing }) => {
+            const canvas = useRef(null);
+            const palette=['#4c1d95','#f97316','#2563eb','#0f766e','#be185d','#a16207','#7c3aed','#0284c7','#475569','#65a30d','#dc2626','#d97706','#3730a3','#047857'];
+            const colours = rows.map((r,i)=>FamilyPortfolio.COLORS[r.label]||(/liquidez/i.test(r.label)?'#9ca3af':palette[i%palette.length]));
+            useEffect(()=>{
+                if(!canvas.current || !(total>0))return;
+                const chart=new Chart(canvas.current.getContext('2d'),{type:'doughnut',data:{labels:rows.map(r=>r.label),datasets:[{data:rows.map(r=>r.value),backgroundColor:colours,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${formatCurrency(ctx.raw)} · ${formatPercent(total>0?ctx.raw/total*100:0)}`}}}}});
+                return ()=>chart.destroy();
+            },[rows,total]);
+            return <section className="bg-white rounded-xl border p-4 min-w-0"><h3 className="font-bold">{title}</h3><div className="text-sm text-gray-500 mb-3">{date||'Sin fecha'} · {formatOptionalCurrency(total)}</div>
+                {missing.length>0 ? <p role="status" className="text-amber-800">Sin datos completos: {missing.join(', ')}</p> : !(total>0) ? <p>Sin saldo disponible</p> : <>
+                    <div style={{height:230}}><canvas ref={canvas} role="img" aria-label={title}/></div>
+                    <div className="overflow-x-auto mt-3"><table className="w-full text-sm"><thead><tr><th className="text-left">Concepto</th><th className="text-right">Importe</th><th className="text-right">Peso</th></tr></thead><tbody>{rows.map((r,i)=><tr key={r.label}><td className="py-1 pr-2"><span className="inline-block w-3 h-3 mr-2 rounded-sm" style={{backgroundColor:colours[i]}}/>{r.label}</td><td className="text-right whitespace-nowrap">{formatCurrency(r.value)}</td><td className="text-right pl-2">{formatOptionalPercent(r.percent)}</td></tr>)}</tbody></table></div>
+                </>}
+            </section>;
         };
 
         const Notification = ({ message, onClose }) => {
@@ -1023,6 +1055,12 @@
             const currentYearStr = new Date().getFullYear().toString();
             const months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
             const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+            const [viewPrefs, setViewPrefs] = useState(()=>{ try { return FamilyPortfolio.read(typeof window === 'undefined' ? null : window.localStorage); } catch { return {}; } });
+            const saveViewPreference = (key, value) => {
+                const next = {...viewPrefs,[key]:value};
+                try { FamilyPortfolio.write(window.localStorage,next); setViewPrefs(next); }
+                catch { showMessage('No se ha podido guardar la configuración de vista.'); }
+            };
             const activeFunds = funds.filter(f => !f.archived);
             const archivedFunds = funds.filter(f => f.archived);
             const fundDataset = { funds, snapshots };
@@ -1193,7 +1231,9 @@
             });
 
             const { items: sortedTable1Rows, requestSort: requestTable1Sort } = useSortableData(table1Rows);
-            const displayedTable1Rows = sortedTable1Rows.filter(f => !f.archived || showArchivedHistory);
+            const displayedTable1Rows = FamilyPortfolio.arrange(table1Rows.filter(f => !f.archived || showArchivedHistory),viewPrefs.positions,true);
+            const photoFunds = FamilyPortfolio.arrange(activeFunds,viewPrefs.photo,true);
+            const allocation = FamilyPortfolio.allocation(funds,currentSnap);
 
             const sortedSnapsDesc = [...snapshots].sort((a,b) => b.date.localeCompare(a.date));
             const historyRows = sortedSnapsDesc.map((snap, idx, arr) => {
@@ -1225,7 +1265,7 @@
                         const sv = s.fundsData?.[f.id]?.ingreso || 0;
                         const vl = s.fundsData?.[f.id]?.value || 0;
                         ing += sv;
-                        if (f.type.includes('Fija')) rf += vl; else rv += vl;
+                        if (/fija|mixta/i.test(f.type)) rf += vl; else rv += vl;
                     });
                     return { ing, rf, rv, cartera: rf+rv, patrimonio: rf+rv+(s.liquidity || 0), liquidity: s.liquidity || 0 };
                 };
@@ -1240,7 +1280,7 @@
             });
 
             const MANUAL_FIELDS = [
-                ['ingresoTotal', 'Ingreso total (€)'], ['rf', 'Valor RF Mixta (€)'], ['rv', 'Valor RV (+PP) (€)'],
+                ['ingresoTotal', 'Ingreso total (€)'], ['rf', 'Renta fija (€)'], ['rv', 'Valor RV (+PP) (€)'],
                 ['cartera', 'Cartera total (€)'], ['patrimonio', 'Patrimonio total (€)'], ['liquidity', 'Liquidez (€)'],
                 ['diffCartera', 'Dif. cartera (€)'], ['diffCarteraPct', 'Dif. cartera (%)'],
                 ['diffPatrimonio', 'Dif. patrimonio (€)'], ['diffPatrimonioPct', 'Dif. patrimonio (%)']
@@ -1287,14 +1327,21 @@
                 if (updateSnapshot({...original, investmentFlow: {fromDate:flowDraft.from, contributions, withdrawals}}) === false) return;
                 setFlowDraft(null); showMessage('Flujos del intervalo guardados. El balance familiar no se modifica.');
             };
-            const resultChartRows = [...processedHistoryRows].reverse().filter(r => r.date >= '2026-06-01' && r.from >= '2026-06-01');
+            const resultChartRows = [...FamilyPerformance.periods(historyRows,snapshots,'semanal')].reverse().filter(r => r.date >= '2026-06-01' && r.from >= '2026-06-01');
             const resultChart = { labels: resultChartRows.map(r=>r.date), datasets:[
-                {label:'Cambio de saldo',data:resultChartRows.map(r=>r.diffCartera),backgroundColor:'#64748b'},
-                {label:'Entradas netas a cartera',data:resultChartRows.map(r=>r.netFlow),backgroundColor:'#3b82f6'},
-                {label:'Resultado de inversión (ver estado en tabla)',data:resultChartRows.map(r=>r.result),backgroundColor:'#0d9488'}
+                {label:'Cambio del saldo total (con liquidez)',data:resultChartRows.map(r=>r.diffPatrimonio),backgroundColor:'#2563eb'},
+                {label:'Entradas netas a cartera',data:resultChartRows.map(r=>r.netFlow),backgroundColor:'#f97316'}
             ]};
 
-            const CHART_VARS = ['Ingreso Total', 'Renta Fija', 'Renta Variable', 'Cartera Total', 'Patrimonio Total'];
+            const historyColumns = [
+                ['date','Fecha','text'],['ing','Capital registrado','eur'],['rf','Renta fija','eur'],['rv','Renta variable (+PP)','eur'],['liquidity','Liquidez','eur'],
+                ['cartera','Cartera total','eur'],['patrimonio','Patrimonio total','eur'],['diffCartera','Cambio de saldo cartera (€)','eur'],['pctCartera','Variación de saldo cartera (%)','pct'],
+                ['diffPatrimonio','Cambio de saldo total (€)','eur'],['pctPatrimonio','Variación del saldo total (%)','pct'],['from','Desde','text'],['netFlow','Entradas netas a cartera','eur'],['result','Ganancia / pérdida (€)','eur'],['status','Fiabilidad','text']
+            ].map(([id,name,format])=>({id,name,format}));
+            const visibleHistoryColumns = FamilyPortfolio.arrange(historyColumns,viewPrefs.columns,true);
+            const historyValue = (row,column) => column.format === 'eur' ? formatOptionalCurrency(row[column.id]) : column.format === 'pct' ? formatOptionalPercent(row[column.id]) : (row[column.id] ?? '—');
+
+            const CHART_VARS = ['Ingreso Total', 'Renta Fija', 'Renta Variable', 'Liquidez', 'Cartera Total', 'Patrimonio Total'];
             const [selectedChartVars, setSelectedChartVars] = useState(['Ingreso Total', 'Cartera Total']);
             const [chartStartYear, setChartStartYear] = useState('2020');
             const [chartEndYear, setChartEndYear] = useState(currentYearStr);
@@ -1311,22 +1358,23 @@
                 const chartEndFull = `${chartEndYear}-${chartEndMonth}`;
 
                 const chartSnaps = historyRows.slice().reverse().filter(r => {
-                    if (chartStartFull && r.date < chartStartFull) return false;
-                    if (chartEndFull && r.date > chartEndFull) return false;
+                    if (chartStartFull && r.date.slice(0,7) < chartStartFull) return false;
+                    if (chartEndFull && r.date.slice(0,7) > chartEndFull) return false;
                     return true;
                 });
 
                 const chartDatasets = [];
-                const colors = { 'Ingreso Total': '#9ca3af', 'Renta Fija': '#eab308', 'Renta Variable': '#ef4444', 'Cartera Total': '#3b82f6', 'Patrimonio Total': '#10b981' };
+                const colors = FamilyPortfolio.COLORS;
 
                 selectedChartVars.forEach(v => {
                     let data = [];
                     if(v === 'Ingreso Total') data = chartSnaps.map(r => r.ing);
                     if(v === 'Renta Fija') data = chartSnaps.map(r => r.rf);
                     if(v === 'Renta Variable') data = chartSnaps.map(r => r.rv);
+                    if(v === 'Liquidez') data = chartSnaps.map(r => r.liquidity);
                     if(v === 'Cartera Total') data = chartSnaps.map(r => r.cartera);
                     if(v === 'Patrimonio Total') data = chartSnaps.map(r => r.patrimonio);
-                    chartDatasets.push({ label: v, data: data, borderColor: colors[v], backgroundColor: colors[v], fill: false, tension: 0.1, borderWidth: v.includes('Total') ? 3 : 2 });
+                    chartDatasets.push({ label: v, data: data, borderColor: colors[v], backgroundColor: colors[v], fill: false, tension: 0, spanGaps: false, borderDash: v === 'Cartera Total' ? [6,3] : [], pointBackgroundColor:colors[v], segment:{borderColor:FamilyPortfolio.segmentColor}, borderWidth: v.includes('Total') ? 3 : 2 });
                 });
                 return { labels: chartSnaps.map(r => r.date), datasets: chartDatasets };
             }, [historyRows, chartStartYear, chartStartMonth, chartEndYear, chartEndMonth, selectedChartVars]);
@@ -1347,14 +1395,15 @@
                                     <div><label className="block text-sm font-bold text-gray-700">Fecha de la foto</label><input type="date" value={snapDate} onChange={e=>setSnapDate(e.target.value)} className="w-full p-2 border rounded bg-gray-50 outline-teal-500" required /></div>
                                     <div><label className="block text-sm font-bold text-teal-700">Liquidez en Bancos (€)</label><AmountInput value={snapLiquidity} onChange={e=>setSnapLiquidity(e.target.value)} className="w-full p-2 border rounded border-teal-300 font-bold outline-teal-500" required /></div>
                                 </div>
+                                <ViewControls title="Fondos de la fotografía" items={activeFunds} preference={viewPrefs.photo} onChange={value=>saveViewPreference('photo',value)} />
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[50vh] overflow-y-auto pr-2">
-                                    {activeFunds.map(f => (
+                                    {photoFunds.map(f => (
                                         <div key={f.id} className="p-3 bg-gray-50 border rounded hover:border-teal-300 transition-colors">
                                             <div className="flex justify-between items-start">
                                                 <p className="font-bold text-sm text-gray-800 truncate" title={f.name}>{f.name}</p>
                                                 <button type="button" onClick={()=>handleOpenEditFund(f)} className="text-[10px] text-blue-600 hover:underline">Editar Fondo</button>
                                             </div>
-                                            <p className="text-[10px] text-gray-500 uppercase">{f.type} | {f.gestora}</p>
+                                            <p className="text-[10px] text-gray-500 uppercase">{FamilyPortfolio.group(f.type)} | {f.gestora}</p>
                                             <div className="grid grid-cols-2 gap-2 mt-3">
                                                 <div><label className="block text-[10px] font-bold text-gray-600 mb-1">INGRESO</label><AmountInput value={snapFundsData[f.id]?.ingreso ?? ''} onChange={e=>handleFundDataChange(f.id, 'ingreso', e.target.value)} className="w-full p-1.5 border rounded text-sm outline-teal-500" /></div>
                                                 <div><label className="block text-[10px] font-bold text-teal-800 mb-1">VALOR ACTUAL</label><AmountInput value={snapFundsData[f.id]?.value ?? ''} onChange={e=>handleFundDataChange(f.id, 'value', e.target.value)} className="w-full p-1.5 border rounded border-teal-300 font-bold text-sm text-teal-900 outline-teal-500" /></div>
@@ -1411,77 +1460,28 @@
                         </div>
                     )}
 
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mt-6 w-full">
-                        <div className="bg-gray-50 p-4 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                            <h2 className="text-lg font-bold text-gray-800">Tabla 1: Desglose de Cartera y Revalorización</h2>
-                            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded border shadow-sm">
-                                <label className="text-xs font-bold text-gray-500 uppercase">Ver Año:</label>
-                                <input type="text" value={selectedYear} onChange={e=>setSelectedYear(e.target.value)} className="w-20 p-1 rounded bg-transparent font-bold text-teal-700 outline-none border text-center" />
-                            </div>
+                    <section className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden w-full">
+                        <div className="bg-gray-50 p-4 border-b flex flex-wrap justify-between items-center gap-3">
+                            <h2 className="text-lg font-bold">Tabla 1: Desglose de Cartera</h2>
+                            <label className="text-sm">Año <input aria-label="Año del desglose" type="text" value={selectedYear} onChange={e=>setSelectedYear(e.target.value)} className="w-20 border rounded p-1 ml-2" /></label>
                         </div>
                         <label className="flex gap-2 p-3"><input type="checkbox" checked={showArchivedHistory} onChange={e=>setShowArchivedHistory(e.target.checked)} />Mostrar fondos archivados actualmente en el desglose histórico</label>
-
-                        <div className="w-full overflow-x-auto table-scroll">
-                            <table className="w-full text-xs text-right funds-table">
-                                <thead className="bg-gray-100 border-b">
-                                    <tr>
-                                        <th colSpan="3" className="px-3 py-2 text-left text-gray-600 border-r border-gray-200">DATOS DEL FONDO</th>
-                                        <th colSpan="3" className="px-3 py-2 text-center text-blue-800 bg-blue-50/50 border-r border-blue-100">VALORES (€)</th>
-                                        <th colSpan="4" className="px-3 py-2 text-center text-green-800 bg-green-50/50 border-r border-green-100">REVALORIZACIÓN</th>
-                                        <th colSpan="4" className="px-3 py-2 text-center text-purple-800 bg-purple-50/50">DISTRIBUCIÓN Y PESOS</th>
-                                    </tr>
-                                    <tr className="border-b text-gray-700">
-                                        <th onClick={() => requestTable1Sort('start')} className="px-2 py-2 text-left font-semibold cursor-pointer hover:bg-gray-200">Fecha ↕</th>
-                                        <th onClick={() => requestTable1Sort('isin')} className="px-2 py-2 text-left font-semibold cursor-pointer hover:bg-gray-200">ISIN ↕</th>
-                                        <th onClick={() => requestTable1Sort('name')} className="px-3 py-2 text-left font-semibold border-r border-gray-200 cursor-pointer hover:bg-gray-200">Nombre Fondo ↕</th>
-                                        <th onClick={() => requestTable1Sort('ing')} className="px-2 py-2 font-semibold bg-blue-50/50 text-right cursor-pointer hover:bg-blue-100">Ingreso ↕</th>
-                                        <th onClick={() => requestTable1Sort('ingresoAno')} className="px-2 py-2 font-semibold bg-blue-50/50 text-right cursor-pointer hover:bg-blue-100">Ingreso Año ↕</th>
-                                        <th onClick={() => requestTable1Sort('val')} className="px-2 py-2 font-black text-blue-900 bg-blue-50/30 border-r border-blue-100 text-right cursor-pointer hover:bg-blue-100">Valor Actual ↕</th>
-                                        <th onClick={() => requestTable1Sort('revalHist')} className="px-2 py-2 font-semibold bg-green-50/50 text-right cursor-pointer hover:bg-green-100">Total (€) ↕</th>
-                                        <th onClick={() => requestTable1Sort('revalAno')} className="px-2 py-2 font-semibold bg-green-50/50 text-right cursor-pointer hover:bg-green-100">Año (€) ↕</th>
-                                        <th onClick={() => requestTable1Sort('pctRevalHist')} className="px-2 py-2 font-semibold bg-green-50/50 text-right cursor-pointer hover:bg-green-100">Total (%) ↕</th>
-                                        <th onClick={() => requestTable1Sort('pctRevalAno')} className="px-2 py-2 font-semibold bg-green-50/50 border-r border-green-100 text-right cursor-pointer hover:bg-green-100">Año (%) ↕</th>
-                                        <th onClick={() => requestTable1Sort('pesoGestora')} className="px-2 py-2 font-semibold bg-purple-50/50 text-right cursor-pointer hover:bg-purple-100">Por Gestora ↕</th>
-                                        <th onClick={() => requestTable1Sort('pesoTipo')} className="px-2 py-2 font-semibold bg-purple-50/50 text-right cursor-pointer hover:bg-purple-100">Por Tipología ↕</th>
-                                        <th onClick={() => requestTable1Sort('pesoCartera')} className="px-2 py-2 font-semibold bg-purple-50/50 text-right cursor-pointer hover:bg-purple-100">En Cartera ↕</th>
-                                        <th onClick={() => requestTable1Sort('pesoIngreso')} className="px-2 py-2 font-semibold bg-purple-50/50 text-right cursor-pointer hover:bg-purple-100">Del Ingreso ↕</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {displayedTable1Rows.length > 0 && currentSnap ? displayedTable1Rows.map(row => (
-                                        <tr key={row.id} className="hover:bg-gray-50">
-                                            <td className="px-2 py-2 text-left text-gray-500">{row.start}</td>
-                                            <td className="px-2 py-2 text-left text-gray-500">{row.isin}</td>
-                                            <td className="px-3 py-2 text-left font-bold text-gray-800 border-r border-gray-200">{row.name} {row.archived && <span className="text-amber-800">(archivado actualmente)</span>}<br/><span className="text-[10px] text-gray-400 font-normal">{row.gestora}</span></td>
-                                            <td className="px-2 py-2 bg-blue-50/10 text-right">{formatOptionalCurrency(row.ing)}</td>
-                                            <td className="px-2 py-2 bg-blue-50/10 text-right">{formatCurrency(row.ingresoAno)}</td>
-                                            <td className="px-2 py-2 font-black text-blue-900 bg-blue-50/30 border-r border-blue-100 text-right">{formatCurrency(row.val)}</td>
-                                            <td className={`px-2 py-2 font-bold bg-green-50/10 text-right ${row.revalHist >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(row.revalHist)}</td>
-                                            <td className={`px-2 py-2 font-medium bg-green-50/10 text-right ${row.revalAno >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(row.revalAno)}</td>
-                                            <td className={`px-2 py-2 font-bold bg-green-50/10 text-right ${row.pctRevalHist >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(row.pctRevalHist)}</td>
-                                            <td className={`px-2 py-2 font-medium bg-green-50/10 border-r border-green-100 text-right ${row.pctRevalAno >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatPercent(row.pctRevalAno)}</td>
-                                            <td className="px-2 py-2 text-purple-900 bg-purple-50/20 text-right">{formatPercent(row.pesoGestora)}</td>
-                                            <td className="px-2 py-2 text-purple-900 bg-purple-50/20 text-right">{formatPercent(row.pesoTipo)}</td>
-                                            <td className="px-2 py-2 font-bold text-purple-900 bg-purple-50/40 text-right">{formatPercent(row.pesoCartera)}</td>
-                                            <td className="px-2 py-2 text-purple-800 bg-purple-50/20 text-right">{formatPercent(row.pesoIngreso)}</td>
-                                        </tr>
-                                    )) : (
-                                        <tr><td colSpan="14" className="text-center py-8 text-gray-400">{currentSnap ? 'No hay fondos activos visibles. Activa Mostrar fondos archivados para consultar su desglose.' : `No hay fotografías registradas en ${selectedYear}.`}</td></tr>
-                                    )}
-                                </tbody>
-                                {currentSnap && (
-                                    <tfoot className="bg-indigo-50 border-t-2 border-indigo-200 font-bold">
-                                        <tr>
-                                            <td colSpan="3" className="px-3 py-3 text-left text-indigo-900">SUBTOTAL RENTA VARIABLE + PLANES DE PENSIONES</td>
-                                            <td className="px-2 py-3 text-right">{formatCurrency(totalRVandPP_Ing)}</td>
-                                            <td className="px-2 py-3 text-right">-</td>
-                                            <td className="px-2 py-3 text-right text-indigo-900">{formatCurrency(totalRVandPP_Val)}</td>
-                                            <td colSpan="8" className="px-2 py-3 text-left text-gray-500 font-normal"></td>
-                                        </tr>
-                                    </tfoot>
-                                )}
-                            </table>
-                        </div>
+                        <ViewControls title="Fondos del desglose" items={funds.filter(f=>!f.archived||showArchivedHistory)} preference={viewPrefs.positions} onChange={value=>saveViewPreference('positions',value)} />
+                        <div className="table-scroll"><table aria-label="Desglose de cartera" className="w-full text-xs text-right">
+                            <thead><tr>{['Fondo','Fecha','ISIN','Capital registrado','Capital del año','Valor actual','Peso en cartera','Dentro de gestora','Dentro de tipo','Peso del capital'].map(label=><th key={label} className="px-3 py-3">{label}</th>)}</tr></thead>
+                            <tbody>{currentSnap && displayedTable1Rows.map(row=><tr key={row.id} className="border-b">
+                                <td className="px-3 py-2 text-left font-semibold">{row.name}{row.archived?' (archivado)':''}<span className="block text-gray-500 text-xs font-normal">{row.gestora}</span></td>
+                                <td className="px-3 py-2">{row.start}</td><td className="px-3 py-2">{row.isin}</td>
+                                <td className="px-3 py-2">{formatOptionalCurrency(row.ing)}</td><td className="px-3 py-2">{formatCurrency(row.ingresoAno)}</td><td className="px-3 py-2 font-bold text-blue-800">{formatCurrency(row.val)}</td>
+                                <td className="px-3 py-2">{formatPercent(row.pesoCartera)}</td><td className="px-3 py-2">{formatPercent(row.pesoGestora)}</td><td className="px-3 py-2">{formatPercent(row.pesoTipo)}</td><td className="px-3 py-2">{formatPercent(row.pesoIngreso)}</td>
+                            </tr>)}{(!currentSnap||!displayedTable1Rows.length)&&<tr><td colSpan="10" className="p-4 text-left text-gray-500">{currentSnap?'Sin fondos visibles':'Sin fotografía en este año'}</td></tr>}</tbody>
+                            {currentSnap&&<tfoot><tr><td colSpan="3" className="p-3 text-left">Total cartera · todos los fondos</td><td className="p-3">{formatCurrency(totalIngreso)}</td><td>—</td><td className="p-3">{formatCurrency(totalCartera)}</td><td colSpan="4"/></tr></tfoot>}
+                        </table></div>
+                    </section>
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                        <AllocationPie title="Distribución por tipo" rows={allocation.types} total={allocation.total} date={allocation.date} missing={allocation.missing}/>
+                        <AllocationPie title="Peso por fondo y liquidez" rows={allocation.funds} total={allocation.total} date={allocation.date} missing={allocation.missing}/>
+                        <AllocationPie title="Peso por gestora y liquidez" rows={allocation.managers} total={allocation.total} date={allocation.date} missing={allocation.missing}/>
                     </div>
 
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mt-6 w-full">
@@ -1515,43 +1515,16 @@
                             <button type="button" onClick={()=>setFlowDraft(null)} className="border p-2 ml-2">Cancelar</button>
                             <button type="button" className="border p-2 ml-2" onClick={()=>{const original=snapshots.find(s=>s.id===flowDraft.id); const {investmentFlow,...rest}=original; if(updateSnapshot(rest)!==false)setFlowDraft(null);}}>Quitar confirmación</button>
                         </form>}
+                        <ViewControls title="Columnas del histórico" items={historyColumns} preference={viewPrefs.columns} onChange={value=>saveViewPreference('columns',value)} />
                         <div className="w-full overflow-x-auto table-scroll">
-                            <table className="w-full text-xs text-right">
-                                <thead className="bg-white border-b sticky top-0 z-10 shadow-sm">
-                                    <tr>
-                                        <th className="px-4 py-3 text-left font-bold text-gray-700 bg-white">Fecha</th>
-                                        <th className="px-3 py-3 font-semibold text-gray-600 bg-white border-r text-right">Capital registrado (no ahorro)</th>
-                                        <th className="px-3 py-3 font-semibold text-yellow-700 bg-yellow-50 text-right">Valor RF Mixta</th>
-                                        <th className="px-3 py-3 font-semibold text-red-700 bg-red-50 text-right">Valor RV (+PP)</th>
-                                        <th className="px-4 py-3 font-black text-blue-800 bg-blue-100 border-x text-right">CARTERA TOTAL</th>
-                                        <th className="px-4 py-3 font-black text-teal-800 bg-teal-100 border-r text-right">PATRIMONIO TOTAL</th>
-                                        <th className="px-3 py-3 font-semibold text-gray-600 bg-white text-right">Cambio de saldo cartera (€)</th>
-                                        <th className="px-3 py-3 font-semibold text-gray-600 bg-white border-r text-right">Variación de saldo (%)</th>
-                                        <th className="px-3 py-3 font-semibold text-gray-600 bg-white text-right">Dif. Patrimonio (€)</th>
-                                        <th className="px-3 py-3 font-semibold text-gray-600 bg-white text-right">Variación patrimonial (%)</th>
-                                        <th className="px-3 py-3">Desde</th><th className="px-3 py-3">Entradas netas (€)</th><th className="px-3 py-3">Ganancia / pérdida (€)</th><th className="px-3 py-3">Fiabilidad</th>
-                                        <th className="px-2 py-3 bg-white"></th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {processedHistoryRows.length === 0 ? <tr><td colSpan="15" className="text-center py-6 text-gray-400">Sin registros</td></tr> :
-                                        processedHistoryRows.map(row => (
-                                            <tr key={row.id} className="hover:bg-gray-50">
-                                                <td className="px-4 py-2 font-bold text-left text-gray-700">{row.date}</td>
-                                                <td className="px-3 py-2 text-gray-600 border-r text-right">{formatOptionalCurrency(row.ing)}</td>
-                                                <td className="px-3 py-2 text-yellow-900 bg-yellow-50/30 text-right">{formatOptionalCurrency(row.rf)}</td>
-                                                <td className="px-3 py-2 text-red-900 bg-red-50/30 text-right">{formatOptionalCurrency(row.rv)}</td>
-                                                <td className="px-4 py-2 font-black text-blue-900 bg-blue-50 border-x text-right">{formatOptionalCurrency(row.cartera)}</td>
-                                                <td className="px-4 py-2 font-black text-teal-900 bg-teal-50 border-r text-right">{formatOptionalCurrency(row.patrimonio)}</td>
-                                                <td className={`px-3 py-2 font-medium text-right ${row.diffCartera >= 0 ? 'text-green-600' : 'text-red-600'}`}>{row.diffCartera == null ? '—' : (row.diffCartera > 0 ? '+' : '') + formatCurrency(row.diffCartera)}</td>
-                                                <td className={`px-3 py-2 font-bold border-r text-right ${row.pctCartera >= 0 ? 'text-green-600' : 'text-red-600'}`}>{row.pctCartera == null ? '—' : (row.pctCartera > 0 ? '+' : '') + formatPercent(row.pctCartera)}</td>
-                                                <td className={`px-3 py-2 font-medium text-right ${row.diffPatrimonio >= 0 ? 'text-green-600' : 'text-red-600'}`}>{row.diffPatrimonio == null ? '—' : (row.diffPatrimonio > 0 ? '+' : '') + formatCurrency(row.diffPatrimonio)}</td>
-                                                <td className={`px-3 py-2 font-bold text-right ${row.pctPatrimonio >= 0 ? 'text-green-600' : 'text-red-600'}`}>{row.pctPatrimonio == null ? '—' : (row.pctPatrimonio > 0 ? '+' : '') + formatPercent(row.pctPatrimonio)}</td>
-                                                <td className="px-3 py-2">{row.from || '—'}</td>
-                                                <td className="px-3 py-2">{formatOptionalCurrency(row.netFlow)}</td>
-                                                <td className={`px-3 py-2 font-bold ${row.result < 0 ? 'text-red-700' : 'text-teal-800'}`}>{formatOptionalCurrency(row.result)}</td>
-                                                <td className="px-3 py-2">{row.status}{compareMode === 'semanal' && row.from && <button type="button" className="block border rounded p-1 mt-1" onClick={()=>{const original=snapshots.find(s=>s.id===row.id);const f=original.investmentFlow;setFlowDraft({id:row.id,date:row.date,from:row.from,contributions:f?.fromDate===row.from?formatAmount(f.contributions):'',withdrawals:f?.fromDate===row.from?formatAmount(f.withdrawals):''});}}>Revisar flujos</button>}</td>
-                                                <td className="px-2 py-2 flex items-center gap-1">
+                            <table aria-label="Evolución patrimonial" className="w-full text-xs text-right">
+                                <thead><tr>{visibleHistoryColumns.map(column=><th key={column.id} className="px-3 py-3">{column.name}</th>)}<th className="px-3 py-3">Acciones</th></tr></thead>
+                                <tbody>{processedHistoryRows.map(row=><tr key={row.id}>
+                                    {visibleHistoryColumns.map(column=><td key={column.id} className={`px-3 py-2 ${['diffCartera','diffPatrimonio','result'].includes(column.id) && row[column.id]!=null ? row[column.id]<0?'text-red-700':'text-green-700':''}`}>
+                                        {historyValue(row,column)}
+                                        {column.id==='status' && compareMode==='semanal' && row.from && <button type="button" className="block border rounded p-1 mt-1" onClick={()=>{const original=snapshots.find(s=>s.id===row.id);const f=original.investmentFlow;setFlowDraft({id:row.id,date:row.date,from:row.from,contributions:f?.fromDate===row.from?formatAmount(f.contributions):'',withdrawals:f?.fromDate===row.from?formatAmount(f.withdrawals):''});}}>Revisar flujos</button>}
+                                    </td>)}
+                                    <td className="px-2 py-2"><div className="flex gap-2">
                                                     <button onClick={()=>{
                                                         const targetSnap = snapshots.find(s => s.id === row.id);
                                                         if (targetSnap?.summaryOnly || ((targetSnap?.table2 || targetSnap?.summary) && Object.keys(targetSnap.fundsData || {}).length === 0)) {
@@ -1565,16 +1538,13 @@
                                                         showMessage("Cargado en el formulario superior para editar");
                                                     }} className="px-1.5 py-1 bg-amber-50 text-amber-700 rounded hover:bg-amber-100 text-[10px] font-bold">Editar</button>
                                                     <button onClick={()=>{if (deleteSnapshot(row.id) !== false) showMessage("Registro eliminado");}} className="text-red-400 hover:text-red-600 font-bold text-xs bg-red-50 p-1 rounded">Borrar</button>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    }
-                                </tbody>
+                                    </div></td>
+                                </tr>)}{!processedHistoryRows.length&&<tr><td colSpan={visibleHistoryColumns.length+1} className="p-4 text-left">Sin registros</td></tr>}</tbody>
                             </table>
                         </div>
                     </div>
 
-                    <div className="bg-white p-4 rounded-xl border"><h2 className="font-bold mb-2">Aportaciones y resultado por intervalo</h2><SimpleChart data={resultChart} type="bar" /></div>
+                    <div className="bg-white p-4 rounded-xl border"><h2 className="font-bold mb-2">Entradas netas y cambios de saldo · semanal</h2><SimpleChart data={resultChart} type="bar" /></div>
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 w-full">
                         <h2 className="text-lg font-bold mb-4 text-gray-800 flex items-center gap-2">
                             <span>📈</span> Gráfica de saldos (incluyen aportaciones)
@@ -1876,7 +1846,7 @@
                     const sv = s.fundsData?.[f.id]?.ingreso || 0;
                     const vl = s.fundsData?.[f.id]?.value || 0;
                     ing += sv;
-                    if (f.type.includes('Fija')) rf += vl; else rv += vl;
+                    if (/fija|mixta/i.test(f.type)) rf += vl; else rv += vl;
                 });
                 return { ing, rf, rv, cartera: rf + rv, patrimonio: rf + rv + (s.liquidity || 0) };
             };

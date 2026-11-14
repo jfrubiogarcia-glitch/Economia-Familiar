@@ -17,17 +17,20 @@ const d={incomes:[],expenses:[],funds:[],snapshots:[{id:'s',date:'2026-10-31',su
  const c=structuredClone(d);c.snapshots[0].investmentFlow.fromDate='2026-10-31';assert.throws(()=>B.validateDataset(c));
 });
 
-test('result chart excludes the initial capital and intervals before June 2026',()=>{
+test('weekly chart excludes initial capital and has only net entries and total balance changes',()=>{
  const fs=require('node:fs'),vm=require('node:vm');
  const html=fs.readFileSync(require('node:path').join(__dirname,'../index.html'),'utf8');
  const start=html.indexOf('            const resultChartRows =');
- const end=html.indexOf('            const CHART_VARS',start);
- const chart=vm.runInNewContext('(function(){'+html.slice(start,end)+'return resultChart;})()',{
- processedHistoryRows:[
- {date:'2026-06-19',from:'2026-06-12',diffCartera:10,netFlow:5,result:5},
+ const end=html.indexOf('            const historyColumns',start);
+ const measured=[
+ {date:'2026-06-19',from:'2026-06-12',diffCartera:10,diffPatrimonio:15,netFlow:5,result:5},
  {date:'2026-06-12',from:'2026-01-01',diffCartera:1000,netFlow:900,result:100},
- {date:'2026-01-01',from:null,diffCartera:10000,netFlow:10000,result:null}
- ]});
+ {date:'2026-01-01',from:null,diffCartera:10000,netFlow:10000,result:null}];
+ let actualMode;
+ const chart=vm.runInNewContext('(function(){'+html.slice(start,end)+'return resultChart;})()',{
+ historyRows:[],snapshots:[],FamilyPerformance:{periods:(r,s,mode)=>{actualMode=mode;return measured;}}
+ });
+ assert.equal(actualMode,'semanal');
  assert.deepEqual(Array.from(chart.labels),['2026-06-19']);
- assert.deepEqual(Array.from(chart.datasets,d=>Array.from(d.data)).flat(),[10,5,5]);
+ assert.deepEqual(Array.from(chart.datasets,d=>Array.from(d.data)).flat(),[15,5]);
 });

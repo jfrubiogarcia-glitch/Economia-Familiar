@@ -188,7 +188,7 @@ function investmentHarness(initial, { confirm = true, writeFails = false } = {})
     let data = clone(initial), cursor = 0;
     const slots = [], messages = [], saves = [];
     const context = {
-        FamilyPerformance: require('../investment-performance.js'), FamilyBackup: Backup, generateId: () => 'new-photo', confirm: () => confirm,
+        FamilyPortfolio: require('../portfolio-views.js'), FamilyPerformance: require('../investment-performance.js'), FamilyBackup: Backup, generateId: () => 'new-photo', confirm: () => confirm,
         useState(value) { const i = cursor++; if (!(i in slots)) slots[i] = typeof value === 'function' ? value() : value; return [slots[i], value => { slots[i] = typeof value === 'function' ? value(slots[i]) : value; }]; },
         useRef(value) { const i = cursor++; if (!(i in slots)) slots[i] = { current: value }; return slots[i]; },
         useEffect() {}, useMemo: fn => fn(), useSortableData: items => ({ items, requestSort() {} })
