@@ -9,3 +9,21 @@
 - Gráfica de saldos: RF negro, liquidez gris, cartera y patrimonio azul (cartera discontinua), capital registrado naranja y RV morado oscuro. Los puntos y leyendas identifican la serie; los tramos ascendentes son verdes y los descendentes rojos. Tramos planos conservan el color de la serie; los huecos no se unen. El filtro temporal incluye todo el mes final.
 
 Validación: 189 pruebas Node con datos ficticios y git diff --check. Chrome mediante sites-preview: tres repartos con euros y porcentajes, ocultación y orden independientes, guardado de fotografía con un fondo oculto sin pérdida de sus valores, persistencia tras recarga de orden/ocultación de fondos y columnas, ausencia de revalorización en posiciones, y renderizado de las seis series de saldos. Sin errores de la aplicación en consola. Safari/iPhone real no disponibles para esta comprobación.
+
+## Ocultaciones persistentes y barras semanales
+
+Las preferencias guardadas incluyen también `fundChart` y `managerChart`, independientes de `photo`, `positions` y `columns`. Una copia local anterior conserva sus preferencias y obtiene los dos nuevos grupos vacíos. Los fondos se identifican por su ID original y las gestoras por su nombre de agrupación; nombres repetidos de fondos no comparten accidentalmente selección.
+
+Los elementos desmarcados no figuran en la tabla de la tarta ni como sectores individuales hasta volver a marcarlos. Para conservar el peso real sobre el patrimonio total y no recalcular porcentajes sobre una selección parcial, los importes ocultos positivos se agrupan visualmente en un único sector gris «Ocultos». No cambia ningún saldo ni denominador. Los colores de los elementos visibles se mantienen al ocultar otros.
+
+Las entradas netas son naranjas. El cambio del saldo total es verde si es positivo y rojo si es negativo; cero o ausencia de valor usan gris neutro.
+
+Validación posterior: 191 pruebas Node y git diff --check. Chrome con datos ficticios: ocultar fondo y gestora, recargar y comprobar persistencia sin afectar a las ocultaciones anteriores de fotografía/desglose, volver a marcar un fondo, y comprobación visual de barras positivas verdes, negativas rojas y entradas naranjas. Sin validación en un iPhone real.
+
+## Periodos y sumas de subidas/bajadas
+
+El selector de la sección de barras permite Semanal, Mensual, Anual y Total y es independiente del selector del histórico. Se agrupan los intervalos observados cuyo inicio y cierre son desde junio de 2026. Total suma esos intervalos, sin incorporar el capital inicial; las fechas reales del tramo se muestran encima de las gráficas. No se interpolan cierres naturales ni se generan semanas ausentes.
+
+Una segunda gráfica de barras separa la suma de cambios positivos (verde) de la suma de cambios negativos (rojo). Se suman los intervalos originales antes de agrupar: un mes +500/−300 conserva ambas sumas y un neto +200. No se suman solo los netos mensuales para obtener los totales de subidas y bajadas. Un intervalo desconocido deja desconocido el acumulado correspondiente.
+
+Validación ampliada: 192 pruebas Node; comprobados límites temporales, grupos por mes y año, acumulado total, subidas y bajadas separadas, ausencia de datos e inmutabilidad de fotografías. Chrome: selector mensual/anual/total y representación visual en Total con +60/−10 y cambio neto +50, usando datos ficticios. Publicación todavía pendiente por denegación anterior de la operación de GitHub.

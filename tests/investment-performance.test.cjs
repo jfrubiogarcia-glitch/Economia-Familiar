@@ -28,9 +28,22 @@ test('weekly chart excludes initial capital and has only net entries and total b
  {date:'2026-01-01',from:null,diffCartera:10000,netFlow:10000,result:null}];
  let actualMode;
  const chart=vm.runInNewContext('(function(){'+html.slice(start,end)+'return resultChart;})()',{
- historyRows:[],snapshots:[],FamilyPerformance:{periods:(r,s,mode)=>{actualMode=mode;return measured;}}
+ historyRows:[],snapshots:[],resultPeriod:'semanal',FamilyPortfolio:require('../portfolio-views.js'),FamilyPerformance:{chartPeriods:(r,s,mode)=>{actualMode=mode;return measured.filter(x=>x.from>='2026-06-01');}}
  });
  assert.equal(actualMode,'semanal');
  assert.deepEqual(Array.from(chart.labels),['2026-06-19']);
  assert.deepEqual(Array.from(chart.datasets,d=>Array.from(d.data)).flat(),[15,5]);
+});
+
+
+test('chart periods group intervals into month, year and total without counting initial capital',()=>{
+ const data=[{id:'a',date:'2026-06-12',ing:100,cartera:120,patrimonio:150,diffPatrimonio:null},{id:'b',date:'2026-06-19',ing:130,cartera:140,patrimonio:170,diffPatrimonio:20},{id:'c',date:'2026-07-03',ing:140,cartera:120,patrimonio:150,diffPatrimonio:-20},{id:'d',date:'2027-01-08',ing:150,cartera:160,patrimonio:190,diffPatrimonio:40}];
+ const before=JSON.stringify(data);
+ assert.equal(P.chartPeriods(data,[],'semanal').length,3);
+ assert.deepEqual(P.chartPeriods(data,[],'mensual').map(r=>r.label),['2026-06','2026-07','2027-01']);
+ const annual=P.chartPeriods(data,[],'anual');assert.equal(annual[0].netFlow,40);assert.equal(annual[0].diffPatrimonio,0);assert.equal(annual[0].positiveChange,20);assert.equal(annual[0].negativeChange,-20);assert.equal(annual[1].diffPatrimonio,40);
+ const total=P.chartPeriods(data,[],'total');assert.equal(total.length,1);assert.equal(total[0].netFlow,50);assert.equal(total[0].diffPatrimonio,40);assert.equal(total[0].positiveChange,60);assert.equal(total[0].negativeChange,-20);assert.equal(total[0].from,'2026-06-12');assert.equal(total[0].date,'2027-01-08');assert.equal(JSON.stringify(data),before);
+ const incomplete=structuredClone(data);incomplete[2].diffPatrimonio=null;assert.equal(P.chartPeriods(incomplete,[],'total')[0].positiveChange,null);assert.equal(P.chartPeriods(incomplete,[],'total')[0].negativeChange,null);
+ const missing=structuredClone(data);missing[2].ing=null;assert.equal(P.chartPeriods(missing,[],'total')[0].netFlow,null);
+ assert.deepEqual(P.chartPeriods([],[],'total'),[]);assert.throws(()=>P.chartPeriods(data,[],'invalid'));
 });

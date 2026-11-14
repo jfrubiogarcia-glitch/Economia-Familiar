@@ -34,5 +34,17 @@
                 status:complete?(group.every(r=>r.status==='Verificado')?'Verificado':'Estimado / revisar'):'Sin datos suficientes'};
         }).reverse();
     }
-    return {interval,periods};
+    function chartPeriods(rows,snapshots,mode='semanal') {
+        if(!['semanal','mensual','anual','total'].includes(mode))throw new Error('Periodo no válido.');
+        const measured=periods(rows,snapshots,'semanal').reverse().filter(r=>r.date>='2026-06-01'&&r.from>='2026-06-01').map(r=>({...r,positiveChange:known(r.diffPatrimonio)?Math.max(0,r.diffPatrimonio):null,negativeChange:known(r.diffPatrimonio)?Math.min(0,r.diffPatrimonio):null}));
+        if(mode==='semanal')return measured;
+        const groups=new Map();
+        for(const r of measured){const key=mode==='total'?'Total':r.date.slice(0,mode==='mensual'?7:4);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r);}
+        return [...groups].map(([label,group])=>{
+            const sum=field=>group.every(r=>known(r[field]))?cents(group.reduce((n,r)=>n+r[field],0)):null;
+            return {...group.at(-1),label,from:group[0].from,netFlow:sum('netFlow'),diffPatrimonio:sum('diffPatrimonio'),positiveChange:sum('positiveChange'),negativeChange:sum('negativeChange'),
+                status:group.every(r=>r.status==='Verificado')?'Verificado':'Estimado / revisar'};
+        });
+    }
+    return {interval,periods,chartPeriods};
 });
